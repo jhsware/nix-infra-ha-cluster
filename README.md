@@ -1,0 +1,1 @@
+# nix-infra-ha-cluster
