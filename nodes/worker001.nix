@@ -11,17 +11,17 @@
 
   config.infrastructure.podman.dockerRegistryHostPort = "[%%registry001.overlayIp%%]:5000";
 
-  config.infrastructure.app-pod = {
-    enable = true;
-    bindToIp = "[%%localhost.overlayIp%%]";
-    secretName = "[%%secrets/my.test%%]";
-  };
+  # config.infrastructure.app-pod = {
+  #   enable = true;
+  #   bindToIp = "[%%localhost.overlayIp%%]";
+  #   secretName = "[%%secrets/my.test%%]";
+  # };
 
-  config.infrastructure.app-mongodb-pod = {
-    enable = true;
-    bindToIp = "[%%localhost.overlayIp%%]";
-    mongodbConnectionString = "mongodb://[%%service001.overlayIp%%]:27017,[%%service002.overlayIp%%]:27017,[%%service003.overlayIp%%]:27017/test?replicaSet=rs0&connectTimeoutMS=1000";
-  };
+  # config.infrastructure.app-mongodb-pod = {
+  #   enable = true;
+  #   bindToIp = "[%%localhost.overlayIp%%]";
+  #   mongodbConnectionString = "mongodb://[%%service001.overlayIp%%]:27017,[%%service002.overlayIp%%]:27017,[%%service003.overlayIp%%]:27017/test?replicaSet=rs0&connectTimeoutMS=1000";
+  # };
 
   config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 11211 11311 ];
 }
