@@ -8,7 +8,7 @@ fi
 
 if [ "$CMD" = "init" ]; then
   echo "Initializing MongoDB replica set"
-  podman exec mongodb-4 mongo --port 27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"$service001\", priority: 100},{_id: 1, host: \"$service002\"},{_id: 2, host: \"$service003\"}]})"
+  podman exec mongodb-4 mongo --port 27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"$NODE_1\", priority: 100},{_id: 1, host: \"$NODE_2\"},{_id: 2, host: \"$NODE_3\"}]})"
   echo "Result Code: $?"
 fi
 
