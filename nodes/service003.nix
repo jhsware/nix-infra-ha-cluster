@@ -11,11 +11,11 @@
 
   config.infrastructure.podman.dockerRegistryHostPort = "[%%registry001.overlayIp%%]:5000";
 
-  # config.infrastructure.mongodb-4 = {
-  #   enable = true;
-  #   replicaSetName = "rs0";
-  #   bindToIp = "[%%localhost.overlayIp%%]";
-  # };
+  config.infrastructure.mongodb-4 = {
+    enable = true;
+    replicaSetName = "rs0";
+    bindToIp = "[%%localhost.overlayIp%%]";
+  };
 
   # config.infrastructure.redis-cluster-pod = {
   #   enable = true;
