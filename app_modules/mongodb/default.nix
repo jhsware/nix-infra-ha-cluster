@@ -58,9 +58,9 @@ in
       volumes = [
         "${dataDir}:/data/db"
       ];
-      # cmd = [
-      #   "--replSet" "${cfg.replicaSetName}"
-      # ];
+      cmd = [
+        "--replSet" "${cfg.replicaSetName}"
+      ];
 
       execHooks = {
         ExecStartPre = [
