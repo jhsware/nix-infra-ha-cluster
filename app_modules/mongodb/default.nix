@@ -15,14 +15,14 @@ in
   options.infrastructure.${appName} = {
     enable = lib.mkEnableOption "infrastructure.mongodb oci";
 
-    # # If you want to recreate the replicaset you may need to either:
-    # # - change name
-    # # - delete the data volume/path
-    # replicaSetName = lib.mkOption {
-    #   type = lib.types.str;
-    #   description = "Initial replica set name.";
-    #   default = "rs0";
-    # };
+    # If you want to recreate the replicaset you may need to either:
+    # - change name
+    # - delete the data volume/path
+    replicaSetName = lib.mkOption {
+      type = lib.types.str;
+      description = "Initial replica set name.";
+      default = "rs0";
+    };
 
     bindToIp = lib.mkOption {
       type = lib.types.str;
