@@ -24,5 +24,20 @@
     # mongodbConnectionString = "mongodb://[%%service001.overlayIp%%]:27017/test?connectTimeoutMS=1000";
   };
 
-  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 11211 11311 ];
+  config.infrastructure.app-redis-pod = {
+    enable = true;
+    bindToIp = "[%%localhost.overlayIp%%]";
+    # redisConnectionString = "redis://[%%service001.overlayIp%%]:27017,[%%service002.overlayIp%%]:27017,[%%service003.overlayIp%%]:27017/";
+    # redisConnectionString = "redis://127.0.0.1:6380/";
+    redisConnectionStringSecretName = "[%%secrets/keydb.connectionString%%]";
+  };
+
+  config.infrastructure.app-elasticsearch-pod = {
+    enable = true;
+    bindToIp = "[%%localhost.overlayIp%%]";
+    # elasticsearchConnectionString = "http://[%%service001.overlayIp%%]:9200,[%%service002.overlayIp%%]:9200,[%%service003.overlayIp%%]:9200/";
+    elasticsearchConnectionString = "http://127.0.0.1:9200/";
+  };
+
+  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 11211 11311 11411 11511 ];
 }
