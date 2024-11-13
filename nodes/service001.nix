@@ -42,5 +42,5 @@
     ];
   };
 
-  # config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 27017 6380 9200 ];
+  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 27017 6380 9200 ];
 }
