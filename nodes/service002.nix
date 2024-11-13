@@ -22,25 +22,25 @@
   #   bindToIp = "10.10.7.0";
   # };
 
-  # config.infrastructure.keydb-ha = {
-  #   enable = true;
-  #   bindToIp = "[%%localhost.overlayIp%%]";
-  #   replicaOf = [
-  #     { host = "[%%service001.overlayIp%%]"; port = 6380; }
-  #     { host = "[%%service003.overlayIp%%]"; port = 6380; }
-  #   ];
-  # };
+  config.infrastructure.keydb-ha = {
+    enable = true;
+    bindToIp = "[%%localhost.overlayIp%%]";
+    replicaOf = [
+      { host = "[%%service001.overlayIp%%]"; port = 6380; }
+      { host = "[%%service003.overlayIp%%]"; port = 6380; }
+    ];
+  };
   
-  # config.infrastructure.elasticsearch = {
-  #   enable = true;
-  #   bindToIp = "[%%localhost.overlayIp%%]";
-  #   clusterName = "elasticsearch";
-  #   clusterMembers = [
-  #     { host = "[%%service001.overlayIp%%]"; name = "service001"; }
-  #     { host = "[%%service002.overlayIp%%]"; name = "service002"; }
-  #     { host = "[%%service003.overlayIp%%]"; name = "service003"; }
-  #   ];
-  # };
+  config.infrastructure.elasticsearch = {
+    enable = true;
+    bindToIp = "[%%localhost.overlayIp%%]";
+    clusterName = "elasticsearch";
+    clusterMembers = [
+      { host = "[%%service001.overlayIp%%]"; name = "service001"; }
+      { host = "[%%service002.overlayIp%%]"; name = "service002"; }
+      { host = "[%%service003.overlayIp%%]"; name = "service003"; }
+    ];
+  };
 
   # config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 27017 6380 9200 ];
 }
