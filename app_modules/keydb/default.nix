@@ -6,12 +6,13 @@ let
 
   cfg = config.infrastructure.${appName};
 
+  # https://docs.keydb.dev/docs/config-file/
   redisConf = pkgs.writeText "redis.conf" ''
     port 6380
-    # bind 0.0.0.0
+    bind ${cfg.bindToIp}
     appendonly yes
     loglevel debug
-    protected-mode yes
+    protected-mode no
     dir /data/db
 
     # https://docs.keydb.dev/docs/acl
