@@ -44,7 +44,7 @@ in
         path = "";
         envPrefix = "APP_MONGODB_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/dfec6beb8daa";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/6e3a40cff800";
       autoStart = true;
       ports = [
         "${cfg.bindToIp}:${toString cfg.bindToPort}:3010"
