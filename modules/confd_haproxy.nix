@@ -50,6 +50,7 @@ let
       {{- $meta_data := json (getv (printf "/cluster/%s/%s/meta_data" $type $service))}}
     # {{$type}}: {{$service}}
     listen tcp-in-{{$type}}-{{$service}}
+      # bind 192.168.1.1:{{$meta_data.publish.port}}
       bind 127.0.0.1:{{$meta_data.publish.port}}
       use_backend {{$service}}
 

@@ -9,7 +9,7 @@ let
   # https://docs.keydb.dev/docs/config-file/
   redisConf = pkgs.writeText "redis.conf" ''
     port 6380
-    bind ${cfg.bindToIp}
+    bind 0.0.0.0
     appendonly yes
     loglevel debug
     protected-mode no

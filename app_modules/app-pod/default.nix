@@ -3,6 +3,7 @@ let
   appName = "app-pod";
   # appUser = "app-pod";
   appPort = 11211;
+  expose = 3010;
 
   cfg = config.infrastructure.${appName};
 in
@@ -44,12 +45,16 @@ in
         path = "";
         envPrefix = "APP_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/85238bc5e026";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/898aea81215a";
       autoStart = true;
+      networkType = "host";
       ports = [
-        "${cfg.bindToIp}:${toString cfg.bindToPort}:3010"
+        "${cfg.bindToIp}:${toString cfg.bindToPort}:${toString cfg.bindToPort}"
       ];
       bindToIp = cfg.bindToIp;
+      environment = {
+        EXPOSE = "${toString cfg.bindToPort}";
+      };
       environmentSecrets = [
         { name = cfg.secretName; envVar="MY_TEST"; }
       ];

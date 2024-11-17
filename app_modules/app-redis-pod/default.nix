@@ -3,6 +3,7 @@ let
   appName = "app-redis-pod";
   # appUser = "app-mongodb-pod";
   appPort = 11411;
+  expose = 3011;
 
   cfg = config.infrastructure.${appName};
 in
@@ -44,16 +45,18 @@ in
         path = "";
         envPrefix = "APP_MONGODB_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/6e3a40cff800";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/6076ff03714a";
       autoStart = true;
+      networkType = "host";
       ports = [
-        "${cfg.bindToIp}:${toString cfg.bindToPort}:3010"
+        "${cfg.bindToIp}:${toString cfg.bindToPort}:${toString cfg.bindToPort}"
       ];
       bindToIp = cfg.bindToIp;
       environment = {
         # CONNECTION_STRING = cfg.redisConnectionString;
         # CONNECTION_STRING = "redis://${cfg.redisPassword}@127.0.0.1:6380";
         NODE_ENV = "production";
+        EXPOSE = "${toString cfg.bindToPort}";
       };
       environmentSecrets = [
         { name = cfg.redisConnectionStringSecretName; envVar="CONNECTION_STRING"; }

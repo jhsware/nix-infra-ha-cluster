@@ -3,6 +3,7 @@ let
   appName = "app-mongodb-pod";
   # appUser = "app-mongodb-pod";
   appPort = 11311;
+  expose = 3012;
 
   cfg = config.infrastructure.${appName};
 in
@@ -50,10 +51,11 @@ in
         path = "";
         envPrefix = "APP_MONGODB_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/439162e5d0f4";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/dd3b02e1e996";
       autoStart = true;
+      networkType = "host";
       ports = [
-        "${cfg.bindToIp}:${toString cfg.bindToPort}:3010"
+        "${cfg.bindToIp}:${toString cfg.bindToPort}:${toString cfg.bindToPort}"
       ];
       bindToIp = cfg.bindToIp;
       # environmentSecrets = [
@@ -63,6 +65,7 @@ in
         # CONNECTION_STRING =  "mongodb://10.10.66.0:27017,10.10.49.0:27017,10.10.90.0,27017/test?replicaSet=rs0&connectTimeoutMS=1000";
         CONNECTION_STRING = cfg.mongodbConnectionString;
         NODE_ENV = "production";
+        EXPOSE = "${toString cfg.bindToPort}";
       };
     };
 

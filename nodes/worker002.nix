@@ -36,7 +36,8 @@
     enable = true;
     bindToIp = "[%%localhost.overlayIp%%]";
     # elasticsearchConnectionString = "http://[%%service001.overlayIp%%]:9200,[%%service002.overlayIp%%]:9200,[%%service003.overlayIp%%]:9200/";
-    elasticsearchConnectionString = "http://127.0.0.1:9200/";
+    # elasticsearchConnectionString = "http://127.0.0.1:9200/";
+    elasticsearchConnectionStringSecretName = "[%%secrets/elasticsearch.connectionString%%]";
   };
 
   config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 11211 11311 11411 11511 ];

@@ -3,6 +3,7 @@ let
   appName = "app-elasticsearch-pod";
   # appUser = "app-mongodb-pod";
   appPort = 11511;
+  expose = 3013;
 
   cfg = config.infrastructure.${appName};
 in
@@ -22,11 +23,16 @@ in
       default = appPort;
     };
 
-    elasticsearchConnectionString = lib.mkOption {
+    elasticsearchConnectionStringSecretName = lib.mkOption {
       type = lib.types.str;
-      description = "Elasticsearch connection string.";
-      default = "127.0.0.1";
+      description = "Name of the installed systemd credential.";
     };
+
+    # elasticsearchConnectionString = lib.mkOption {
+    #   type = lib.types.str;
+    #   description = "Elasticsearch connection string.";
+    #   default = "127.0.0.1";
+    # };
 
     # secretName = lib.mkOption {
     #   type = lib.types.str;
@@ -50,20 +56,22 @@ in
         path = "";
         envPrefix = "APP_MONGODB_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/ceb360d346bd";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/63d4716599b6";
       autoStart = true;
+      networkType = "host";
       ports = [
-        "${cfg.bindToIp}:${toString cfg.bindToPort}:3010"
+        "${cfg.bindToIp}:${toString cfg.bindToPort}:${toString cfg.bindToPort}"
       ];
       bindToIp = cfg.bindToIp;
-      # environmentSecrets = [
-      #   { name = cfg.secretName; envVar="MY_TEST"; }
-      # ];
       environment = {
         # CONNECTION_STRING =  "mongodb://10.10.66.0:27017,10.10.49.0:27017,10.10.90.0,27017/test?replicaSet=rs0&connectTimeoutMS=1000";
-        CONNECTION_STRING = cfg.elasticsearchConnectionString;
+        # CONNECTION_STRING = cfg.elasticsearchConnectionString;
         NODE_ENV = "production";
+        EXPOSE = "${toString cfg.bindToPort}";
       };
+      environmentSecrets = [
+        { name = cfg.elasticsearchConnectionStringSecretName; envVar="CONNECTION_STRING"; }
+      ];
     };
 
   };

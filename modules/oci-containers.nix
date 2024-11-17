@@ -299,6 +299,13 @@ let
           '';
         };
 
+        networkType = mkOption {
+          type = types.enum [ null "host" ];
+          default = null;
+          description = "Choose network type or use default bridge.";
+          example = "host";
+        };
+
         hostname = mkOption {
           type = with types; nullOr str;
           default = null;
@@ -407,6 +414,7 @@ let
       ++ map (v: "-v ${escapeShellArg v}") container.volumes
       ++ (mapAttrsToList (k: v: "-l ${escapeShellArg k}=${escapeShellArg v}") container.labels)
       ++ optional (container.workdir != null) "-w ${escapeShellArg container.workdir}"
+      ++ optional (container.networkType == "host")  "--network=host"
       ++ map escapeShellArg container.extraOptions
       ++ [container.image]
       ++ map escapeShellArg container.cmd

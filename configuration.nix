@@ -28,6 +28,16 @@ in
   networking.firewall.allowedTCPPorts = [ sshPort ];
   networking.firewall.allowedUDPPorts = [ ];
 
+  networking = {
+    vlans = {
+      vlan100 = { id=100; interface="eth0"; };
+    };
+    interfaces.vlan100.ipv4.addresses = [{
+      address = "192.168.1.1";
+      prefixLength = 28;
+    }];
+  };
+
   services.openssh.enable = true;
   services.openssh.settings.PermitRootLogin = "yes";
   services.openssh.settings.PasswordAuthentication = false;
