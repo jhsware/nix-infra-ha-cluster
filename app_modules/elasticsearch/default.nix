@@ -13,14 +13,14 @@ let
     node.name: ${config.networking.hostName}
     path.data: /usr/share/elasticsearch/data
     path.logs: /usr/share/elasticsearch/logs
+    logger.org.elasticsearch.discovery: WARN
     
     # https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-network.html
-    network.host: 0.0.0.0
-    network.bind_host: 0.0.0.0 # TODO: Probably ${cfg.bindToIp}
-    network.publish_host: ${cfg.bindToIp}
-    # http.port: 9200
-    # transport.port: 9300
-    # remote_cluster.port: 9443
+    network.bind_host: 0.0.0.0 # Listen to all incoming traffic in container
+    network.publish_host: ${cfg.bindToIp} # Advertise the actual ip of the node
+    http.port: 9200
+    transport.port: 9300
+    remote_cluster.port: 9443
 
     # https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-discovery-settings.html
     # https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-discovery-bootstrap-cluster.html
@@ -29,7 +29,13 @@ let
     cluster.initial_master_nodes: ${clusterMasterNodes}
 
     # https://www.elastic.co/guide/en/elasticsearch/reference/8.13/bootstrap-checks-xpack.html#bootstrap-checks-tls
-    xpack.security.enabled: true
+    # https://www.elastic.co/guide/en/elasticsearch/reference/current/security-settings.html
+    xpack.security.enabled: false
+    # xpack.security.http.ssl.enabled: false
+    # xpack.security.transport.ssl.enabled: false
+    # xpack.security.remote_cluster_server.ssl.enabled: false
+    # xpack.security.remote_cluster_client.ssl.enabled: false
+
   '';
 
   dataDir = "/var/lib/elasticsearch-cluster";
