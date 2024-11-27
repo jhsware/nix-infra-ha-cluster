@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-read -p "Enter folder name [nix-infra-test]: " name
-name=${name:-nix-infra-test}
+read -p "Enter folder name [nix-infra-ha-cluster]: " name
+name=${name:-nix-infra-ha-cluster}
 
 mkdir -p $name
 
@@ -16,12 +16,12 @@ fetch() {
   chmod $1 $3
 }
 
-fetch 755 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/test-nix-infra-with-apps.sh $name/test-nix-infra-with-apps.sh
+fetch 755 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/test-nix-infra-ha-base.sh $name/test-nix-infra-ha-base.sh
 fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/check.sh $name/check.sh
 fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/.env.in $name/.env
 echo "Done!"
 echo
 echo "Make sure you have installed nix-infra, then:"
 echo "1. Edit $name/.env"
-echo "2. Run $name/test-nix-infra-with-apps.sh --env=$name/.env"
+echo "2. Run $name/test-nix-infra-ha-base.sh --env=$name/.env"
 echo
