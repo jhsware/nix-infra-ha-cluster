@@ -6,7 +6,7 @@ This is a high availability cluster setup for testing nix-infra. It is intended 
 2. Run [this script](https://github.com/jhsware/nix-infra-ha-cluster/blob/main/scripts/get-test.sh) in the terminal to download test scripts:
 
 ```sh
-sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/scripts/get-test.sh)
+sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-ha-cluster/refs/heads/main/scripts/get-test.sh)
 ```
 3. Get an API-key for an empty Hetzner Cloud project
 
