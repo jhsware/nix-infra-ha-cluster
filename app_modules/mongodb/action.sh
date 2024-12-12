@@ -211,34 +211,55 @@ fi
 
 if [ "$CMD" = "users" ]; then
   if [ -z "$DATABASE" ]; then
-    echo "Usage: $0 users --database=<database>"
-    exit 1
-  fi
-
-  podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
-    db = db.getSiblingDB('$DATABASE');
-    
-    // Get all users for the database
-    let users = db.getUsers();
-    if (users.users.length === 0) {
-      print('No users found in database "$DATABASE"');
-      quit(0);
-    }
-    
-    print('\nUsers in database "$DATABASE":');
-    print('================================');
-    
-    users.users.forEach(user => {
-      print('\nUsername: ' + user.user);
-      print('Roles:');
-      user.roles.forEach(role => {
-        print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
+    podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+      // Get all users for the database
+      let users = db.getUsers();
+      if (users.users.length === 0) {
+        print('No users found in database "$DATABASE"');
+        quit(0);
+      }
+      
+      print('\nUsers in database "$DATABASE":');
+      print('================================');
+      
+      users.users.forEach(user => {
+        print('\nUsername: ' + user.user);
+        print('Roles:');
+        user.roles.forEach(role => {
+          print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
+        });
+        print('User ID: ' + user.userId);
+        print('--------------------------------');
       });
-      print('User ID: ' + user.userId);
-      print('--------------------------------');
-    });
 EOF
 )"
+  else
+    podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+      db = db.getSiblingDB('$DATABASE');
+      
+      // Get all users for the database
+      let users = db.getUsers();
+      if (users.users.length === 0) {
+        print('No users found in database "$DATABASE"');
+        quit(0);
+      }
+      
+      print('\nUsers in database "$DATABASE":');
+      print('================================');
+      
+      users.users.forEach(user => {
+        print('\nUsername: ' + user.user);
+        print('Roles:');
+        user.roles.forEach(role => {
+          print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
+        });
+        print('User ID: ' + user.userId);
+        print('--------------------------------');
+      });
+EOF
+)"
+  fi
+
 
   RESULT=$?
   if [ $RESULT -ne 0 ]; then
