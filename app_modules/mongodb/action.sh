@@ -111,7 +111,8 @@ if [ "$CMD" = "create-db" ]; then
           actions: [ 'find', 'insert', 'update', 'remove', "createCollection", "createIndex" ]
         }
       ],
-      roles: []
+      roles: [],
+      authenticationRestrictions: []
     });
     db.createRole({
       role: '${ADMIN_ROLE}',
@@ -121,14 +122,17 @@ if [ "$CMD" = "create-db" ]; then
           actions: ["find", "insert", "remove", "update", "compact", "createCollection", "dropCollection", "collStats", "createIndex", "reIndex", "dropIndex"]
         }
       ],
-      roles: []
+      roles: [],
+      authenticationRestrictions: []
     });
     
     // Create user with the generated password
     db.createUser({
       user: '$USERNAME',
       pwd: '$PASSWORD',
-      roles: ['${APP_ROLE}']
+      roles: [{ "role": "${APP_ROLE}", "db": "$DATABASE" }],
+      mechanisms: [ "SCRAM-SHA-256" ],
+      passwordDigestor: "server",
     });
 EOF
 )"
