@@ -20,6 +20,10 @@ for i in "$@"; do
     VERBOSE=true
     shift
     ;;
+    --force)
+    FORCE=true
+    shift
+    ;;
     *)
     REST="$@"
     ;;
@@ -78,10 +82,10 @@ if [ "$CMD" = "create-db" ]; then
   # Create role and user in MongoDB
   podman exec mongodb-4 mongo --port 27017 --eval "$(cat <<EOF
     let dbs = db.adminCommand('listDatabases');
-    let dbExists = dbs.databases.some(db => db.name === '$DATABASE_NAME');
+    let dbExists = dbs.databases.some(db => db.name === '$DATABASE');
 
     if (dbExists) {
-      print('Database \"$DATABASE_NAME\" already exists');
+      print('Database "$DATABASE" already exists');
       quit(1);
     }
 
@@ -146,7 +150,7 @@ if [ "$CMD" = "create-admin" ]; then
     db.createUser({
       user: '$USERNAME',
       pwd: '$PASSWORD',
-      roles: ['${APP_ROLE}']
+      roles: ['${ADMIN_ROLE}']
     });
 EOF
 )"
@@ -176,7 +180,7 @@ if [ "$CMD" = "change-password" ]; then
     // Check if user exists
     let userExists = db.getUser('$USERNAME');
     if (!userExists) {
-      print('Error: User \"$USERNAME\" does not exist in database \"$DATABASE\"');
+      print('Error: User "$USERNAME" does not exist in database "$DATABASE"');
       quit(1);
     }
     
@@ -206,11 +210,11 @@ if [ "$CMD" = "list-users" ]; then
     // Get all users for the database
     let users = db.getUsers();
     if (users.users.length === 0) {
-      print('No users found in database \"$DATABASE\"');
+      print('No users found in database "$DATABASE"');
       quit(0);
     }
     
-    print('\nUsers in database \"$DATABASE\":');
+    print('\nUsers in database "$DATABASE":');
     print('================================');
     
     users.users.forEach(user => {
@@ -255,7 +259,7 @@ if [ "$CMD" = "delete-user" ]; then
     // Check if user exists
     let userInfo = db.getUser('$USERNAME');
     if (!userInfo) {
-      print('Error: User \"$USERNAME\" does not exist in database \"$DATABASE\"');
+      print('Error: User "$USERNAME" does not exist in database "$DATABASE"');
       quit(1);
     }
     
@@ -265,7 +269,7 @@ if [ "$CMD" = "delete-user" ]; then
     // Delete the user
     db.dropUser('$USERNAME');
     
-    print('User \"$USERNAME\" successfully deleted from database \"$DATABASE\"');
+    print('User "$USERNAME" successfully deleted from database "$DATABASE"');
     print('The following roles were removed:');
     roles.forEach(role => {
       print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
