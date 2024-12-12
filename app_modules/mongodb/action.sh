@@ -82,9 +82,9 @@ if [ "$CMD" = "create-db" ]; then
   fi
 
   # Create a default user
-  USERNAME="$DATABASE_default_user"
-  APP_ROLE=${DATABASE}_app_role
-  ADMIN_ROLE=${DATABASE}_admin_role
+  USERNAME="${DATABASE}_default_user"
+  APP_ROLE="${DATABASE}_app_role"
+  ADMIN_ROLE="${DATABASE}_admin_role"
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
@@ -150,7 +150,7 @@ if [ "$CMD" = "create-admin" ]; then
     exit 1
   fi
 
-  ADMIN_ROLE=${DATABASE}_admin_role
+  ADMIN_ROLE="${DATABASE}_admin_role"
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
