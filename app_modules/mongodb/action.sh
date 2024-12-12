@@ -85,7 +85,7 @@ if [ "$CMD" = "create-db" ]; then
   USERNAME="$DATABASE_default_user"
   APP_ROLE=${DATABASE}_app_role
   ADMIN_ROLE=${DATABASE}_admin_role
-  PASSWORD=$(head -c  /dev/urandom | base64)
+  PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
   podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
