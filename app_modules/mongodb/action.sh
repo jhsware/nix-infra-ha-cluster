@@ -212,7 +212,8 @@ fi
 if [ "$CMD" = "users" ]; then
   if [ -z "$DATABASE" ]; then
     podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
-      use admin
+      db = db.getSiblingDB('admin');
+      
       // Get all users for the database
       let users = db.system.users.find();
       if (users === null || users.users.length === 0) {
