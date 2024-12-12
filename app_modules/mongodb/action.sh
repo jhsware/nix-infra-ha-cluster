@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [[ "init status dbs create-db create-admin delete-user list-users change-password" == *"$1"* ]]; then
+if [[ "init status dbs create-db create-admin delete-user users change-password" == *"$1"* ]]; then
   CMD="$1"
 else
   exit 0
@@ -206,9 +206,9 @@ EOF
   fi
 fi
 
-if [ "$CMD" = "list-users" ]; then
+if [ "$CMD" = "users" ]; then
   if [ -z "$DATABASE" ]; then
-    echo "Usage: $0 list-users --database=<database>"
+    echo "Usage: $0 users --database=<database>"
     exit 1
   fi
 
