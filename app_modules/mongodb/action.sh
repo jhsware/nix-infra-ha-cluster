@@ -38,7 +38,7 @@ if [ "$CMD" = "status" ]; then
 fi
 
 if [ "$CMD" = "dbs" ]; then
-  if [ -z $VERBOSE ]; then
+  if [ -z "$VERBOSE" ]; then
     podman exec mongodb-4 mongo --port 27017 --eval "db = new Mongo().getDB('admin'); db.adminCommand({'listDatabases': 1})"
   else
     podman exec mongodb-4 mongo --port 27017 --eval "
@@ -128,7 +128,7 @@ fi
 
 if [ "$CMD" = "create-admin" ]; then
   # Check if required parameters are provided
-  if [ -z "$DATABASE" || -z "$USERNAME" ]; then
+  if [ -z "$DATABASE" ] || [ -z "$USERNAME" ]; then
     echo "Usage: $0 create-admin --database=<database-name> --username=<name>"
     exit 1
   fi
