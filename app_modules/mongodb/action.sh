@@ -98,6 +98,9 @@ if [ "$CMD" = "create-db" ]; then
     }
 
     db = db.getSiblingDB('$DATABASE');
+    // Create the database, but remove the collection immediately
+    db.createCollection('temp');
+    db.temp.drop();
     
     // Create roles
     db.createRole({
