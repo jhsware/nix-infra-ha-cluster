@@ -24,7 +24,7 @@ for i in "$@"; do
     REST="$@"
     ;;
   esac
-Done
+done
 
 if [ "$CMD" = "init" ]; then
   echo "Initializing MongoDB replica set"
