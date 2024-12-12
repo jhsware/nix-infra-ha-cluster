@@ -41,7 +41,7 @@ if [ "$CMD" = "dbs" ]; then
   if [ -z "$VERBOSE" ]; then
     podman exec mongodb-4 mongo --port 27017 --eval "db = new Mongo().getDB('admin'); db.adminCommand({'listDatabases': 1})"
   else
-    podman exec mongodb-4 mongo --port 27017 --eval "
+    podman exec mongodb-4 mongo --port 27017 --eval "$(cat <<EOF
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       print('\nDatabase List:');
@@ -52,7 +52,8 @@ if [ "$CMD" = "dbs" ]; then
       });
       print('\nTotal size: ' + (result.totalSize / 1024 / 1024).toFixed(2) + ' MB');
       print('Total number of databases: ' + result.databases.length);
-    "
+EOF
+    )"
   fi
 fi
 
@@ -75,7 +76,7 @@ if [ "$CMD" = "create-db" ]; then
   PASSWORD=$(openssl rand -base64 24)
 
   # Create role and user in MongoDB
-  podman exec mongodb-4 mongo --port 27017 --eval "
+  podman exec mongodb-4 mongo --port 27017 --eval "$(cat <<EOF
     let dbs = db.adminCommand('listDatabases');
     let dbExists = dbs.databases.some(db => db.name === '$DATABASE_NAME');
 
@@ -114,7 +115,8 @@ if [ "$CMD" = "create-db" ]; then
       pwd: '$PASSWORD',
       roles: ['${APP_ROLE}']
     });
-  "
+EOF
+)"
   
   # Check the result of the MongoDB command
   RESULT=$?
@@ -137,7 +139,7 @@ if [ "$CMD" = "create-admin" ]; then
   PASSWORD=$(openssl rand -base64 24)
 
   # Create role and user in MongoDB
-  podman exec mongodb-4 mongo --port 27017 --eval "
+  podman exec mongodb-4 mongo --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
     
     // Create user with the generated password
@@ -146,7 +148,8 @@ if [ "$CMD" = "create-admin" ]; then
       pwd: '$PASSWORD',
       roles: ['${APP_ROLE}']
     });
-  "
+EOF
+)"
   
   # Check the result of the MongoDB command
   RESULT=$?
@@ -167,7 +170,7 @@ if [ "$CMD" = "change-password" ]; then
   # Generate random password if not provided
   NEW_PASSWORD=$(openssl rand -base64 24)
   
-  podman exec mongodb-4 mongo --port 27017 --eval "
+  podman exec mongodb-4 mongo --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
     
     // Check if user exists
@@ -179,7 +182,8 @@ if [ "$CMD" = "change-password" ]; then
     
     // Change password
     db.changeUserPassword('$USERNAME', '$NEW_PASSWORD');
-  "
+EOF
+)"
 
   RESULT=$?
   if [ $RESULT -eq 0 ]; then
@@ -196,7 +200,7 @@ if [ "$CMD" = "list-users" ]; then
     exit 1
   fi
 
-  podman exec mongodb-4 mongo --port 27017 --eval "
+  podman exec mongodb-4 mongo --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
     
     // Get all users for the database
@@ -218,7 +222,8 @@ if [ "$CMD" = "list-users" ]; then
       print('User ID: ' + user.userId);
       print('--------------------------------');
     });
-  "
+EOF
+)"
 
   RESULT=$?
   if [ $RESULT -ne 0 ]; then
@@ -244,7 +249,7 @@ if [ "$CMD" = "delete-user" ]; then
     fi
   fi
 
-  podman exec mongodb-4 mongo --port 27017 --eval "
+  podman exec mongodb-4 mongo --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
     
     // Check if user exists
@@ -265,7 +270,8 @@ if [ "$CMD" = "delete-user" ]; then
     roles.forEach(role => {
       print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
     });
-  "
+EOF
+)"
 
   RESULT=$?
   if [ $RESULT -ne 0 ]; then
