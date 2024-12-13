@@ -248,7 +248,7 @@ if [ "$CMD" = "users" ]; then
         print('\nTotal users: ' + userCount);
       }
 EOF
-)" >$_mute
+)"
   else
     podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
       let adminDb = db.getSiblingDB('admin');
@@ -278,7 +278,7 @@ EOF
       }
 
 EOF
-)" >$_mute
+)"
   fi
 
 
