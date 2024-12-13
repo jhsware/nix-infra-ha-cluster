@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+_mute=/dev/null
+
 if [[ "init status dbs create-db create-admin delete-user users change-password" == *"$1"* ]]; then
   CMD="$1"
 else
@@ -18,6 +20,7 @@ for i in "$@"; do
     ;;
     --verbose)
     VERBOSE=true
+    _mute=/dev/stdout
     shift
     ;;
     --force)
@@ -125,7 +128,7 @@ if [ "$CMD" = "create-db" ]; then
       passwordDigestor: "server",
     });
 EOF
-)"
+)" >$_mute
   
   # Check the result of the MongoDB command
   RESULT=$?
@@ -170,7 +173,7 @@ if [ "$CMD" = "create-admin" ]; then
       roles: ['${ADMIN_ROLE}']
     });
 EOF
-)"
+)" >$_mute
   
   # Check the result of the MongoDB command
   RESULT=$?
@@ -204,7 +207,7 @@ if [ "$CMD" = "change-password" ]; then
     // Change password
     db.changeUserPassword('$USERNAME', '$NEW_PASSWORD');
 EOF
-)"
+)" >$_mute
 
   RESULT=$?
   if [ $RESULT -eq 0 ]; then
@@ -245,7 +248,7 @@ if [ "$CMD" = "users" ]; then
         print('\nTotal users: ' + userCount);
       }
 EOF
-)"
+)" >$_mute
   else
     podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
       let adminDb = db.getSiblingDB('admin');
@@ -275,7 +278,7 @@ EOF
       }
 
 EOF
-)"
+)" >$_mute
   fi
 
 
@@ -330,7 +333,7 @@ if [ "$CMD" = "delete-user" ]; then
       print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
     });
 EOF
-)"
+)" >$_mute
 
   RESULT=$?
   if [ $RESULT -ne 0 ]; then
