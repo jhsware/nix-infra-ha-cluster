@@ -218,52 +218,62 @@ fi
 if [ "$CMD" = "users" ]; then
   if [ -z "$DATABASE" ]; then
     podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
-      db = db.getSiblingDB('admin');
+      let adminDb = db.getSiblingDB('admin');
+      let cursor = adminDb.system.users.find();
+      let userCount = 0;
       
-      // Get all users for the database
-      let users = db.system.users.find();
-      if (users === null || users.users.length === 0) {
-        print('No users found in database "$DATABASE"');
-        quit(0);
-      }
+      print('\nAll Database Users:');
+      print('==================');
       
-      print('\nUsers in database "$DATABASE":');
-      print('================================');
-      
-      users.users.forEach(user => {
+      while(cursor.hasNext()) {
+        let user = cursor.next();
+        userCount++;
+        
         print('\nUsername: ' + user.user);
+        print('Database: ' + user.db);
         print('Roles:');
         user.roles.forEach(role => {
-          print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
+          print('  - ' + role.role + ' (database: ' + role.db + ')');
         });
         print('User ID: ' + user.userId);
-        print('--------------------------------');
-      });
+        print('------------------');
+      }
+      
+      if (userCount === 0) {
+        print('No users found');
+      } else {
+        print('\nTotal users: ' + userCount);
+      }
 EOF
 )"
   else
     podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
-      db = db.getSiblingDB('$DATABASE');
-      
-      // Get all users for the database
-      let users = db.getUsers();
-      if (users.users.length === 0) {
-        print('No users found in database "$DATABASE"');
-        quit(0);
-      }
+      let adminDb = db.getSiblingDB('admin');
+      let cursor = adminDb.system.users.find({ 'db': '$DATABASE' });
+      let userCount = 0;
       
       print('\nUsers in database "$DATABASE":');
       print('================================');
       
-      users.users.forEach(user => {
+      while(cursor.hasNext()) {
+        let user = cursor.next();
+        userCount++;
+        
         print('\nUsername: ' + user.user);
         print('Roles:');
         user.roles.forEach(role => {
-          print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
+          print('  - ' + role.role + ' (database: ' + role.db + ')');
         });
         print('User ID: ' + user.userId);
         print('--------------------------------');
-      });
+      }
+      
+      if (userCount === 0) {
+        print('No users found in database "$DATABASE"');
+      } else {
+        print('\nTotal users: ' + userCount);
+      }
+
 EOF
 )"
   fi
@@ -294,23 +304,28 @@ if [ "$CMD" = "delete-user" ]; then
   fi
 
   podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
-    db = db.getSiblingDB('$DATABASE');
+    const adminDb = db.getSiblingDB('admin');
+      
+    // First check if user exists and get their roles
+    const user = adminDb.system.users.findOne({ 
+      user: '$USERNAME', 
+      db: '$DATABASE'
+    });
     
-    // Check if user exists
-    let userInfo = db.getUser('$USERNAME');
-    if (!userInfo) {
+    if (!user) {
       print('Error: User "$USERNAME" does not exist in database "$DATABASE"');
       quit(1);
     }
     
-    // Store user info for confirmation message
-    let roles = userInfo.roles;
+    // Store roles for confirmation message
+    const roles = user.roles;
     
-    // Delete the user
-    db.dropUser('$USERNAME');
+    // Switch to target database to drop user
+    const targetDb = db.getSiblingDB('$DATABASE');
+    targetDb.dropUser('$USERNAME');
     
     print('User "$USERNAME" successfully deleted from database "$DATABASE"');
-    print('The following roles were removed:');
+    print('The user had the following roles:');
     roles.forEach(role => {
       print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
     });
