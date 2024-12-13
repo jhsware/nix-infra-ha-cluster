@@ -89,15 +89,16 @@ if [ "$CMD" = "create-db" ]; then
 
   # Create role and user in MongoDB
   podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
-    let dbs = db.adminCommand('listDatabases');
-    let dbExists = dbs.databases.some(db => db.name === '$DATABASE');
-
-    if (dbExists) {
-      print('Database "$DATABASE" already exists');
-      quit(1);
+    // First check if database exists using currentOp instead of listDatabases
+    let db = db.getSiblingDB('$DATABASE');
+    if (currentDb !== undefined) {
+      let dbExists = currentDb.stats().ok;
+      if (dbExists) {
+        print('Database "$DATABASE" already exists');
+        quit(1);
+      }
     }
 
-    db = db.getSiblingDB('$DATABASE');
     // Create the database, but remove the collection immediately
     db.createCollection('temp');
     db.temp.drop();
@@ -109,17 +110,6 @@ if [ "$CMD" = "create-db" ]; then
         {
           resource: { db: '$DATABASE', collection: '' },
           actions: [ 'find', 'insert', 'update', 'remove', "createCollection", "createIndex" ]
-        }
-      ],
-      roles: [],
-      authenticationRestrictions: []
-    });
-    db.createRole({
-      role: '${ADMIN_ROLE}',
-      privileges: [
-        {
-          resource: { db: '$DATABASE', collection: '' },
-          actions: ["find", "insert", "remove", "update", "compact", "createCollection", "dropCollection", "collStats", "createIndex", "reIndex", "dropIndex"]
         }
       ],
       roles: [],
@@ -160,6 +150,18 @@ if [ "$CMD" = "create-admin" ]; then
   # Create role and user in MongoDB
   podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
+
+    db.createRole({
+      role: '${ADMIN_ROLE}',
+      privileges: [
+        {
+          resource: { db: '$DATABASE', collection: '' },
+          actions: ["find", "insert", "remove", "update", "compact", "createCollection", "dropCollection", "collStats", "createIndex", "reIndex", "dropIndex"]
+        }
+      ],
+      roles: [],
+      authenticationRestrictions: []
+    });
     
     // Create user with the generated password
     db.createUser({
