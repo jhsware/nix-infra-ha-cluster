@@ -54,7 +54,7 @@ in
         serviceGroup = "frontends";
         port = cfg.bindToPort;
         path = "";
-        envPrefix = "APP_MONGODB_POD";
+        envPrefix = "APP_ELASTICSEARCH_POD";
       };
       image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/54723877cc83";
       autoStart = true;
