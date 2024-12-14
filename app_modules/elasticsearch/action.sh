@@ -42,7 +42,7 @@ fi
 
 # Get the IP address for the Elasticsearch instance
 IP_ADDR=$(ifconfig flannel-wg | grep inet | awk '$1=="inet" {print $2}')
-URI=https://$IP_ADDR:9200
+URI=http://$IP_ADDR:9200
 AUTH_HEADER="Authorization: Basic $(echo -n "elastic:${ELASTIC_PASSWORD}" | base64)"
 
 # if [ "$CMD" = "indices" ]; then
@@ -57,6 +57,7 @@ AUTH_HEADER="Authorization: Basic $(echo -n "elastic:${ELASTIC_PASSWORD}" | base
 
 if [ "$CMD" = "status" ]; then
   # curl -k -s -X GET -H "Content-Type: application/json" -H "$AUTH_HEADER" "$URI/_cluster/health?pretty"
+  echo $URI
   curl -k -s -X GET -H "Content-Type: application/json" "$URI/?human&pretty"
 fi
 
@@ -127,12 +128,12 @@ if [ "$CMD" = "create-admin" ]; then
   # Generate password for admin user
   ADMIN_PASSWORD=$(head -c 24 /dev/urandom | base64)
 
-  # Check if app roles exist
-  role_exists=$(curl -k -s -X GET -H "$AUTH_HEADER" "$URI/_security/role/${APP_NAME}_admin_role" | jq 'has("${APP_NAME}_admin_role")')
-  if [ "$role_exists" != "true" ]; then
-    echo "Error: App '${APP_NAME}' does not exist"
-    exit 1
-  fi
+  # # Check if app roles exist
+  # role_exists=$(curl -k -s -X GET -H "$AUTH_HEADER" "$URI/_security/role/${APP_NAME}_admin_role" | jq 'has("${APP_NAME}_admin_role")')
+  # if [ "$role_exists" != "true" ]; then
+  #   echo "Error: App '${APP_NAME}' does not exist"
+  #   exit 1
+  # fi
 
   curl -k -s -X POST -H "Content-Type: application/json" -H "$AUTH_HEADER" \
     "$URI/_security/user/$USERNAME" -d "$(cat <<EOF
