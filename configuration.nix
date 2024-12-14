@@ -58,5 +58,6 @@ in
   environment.systemPackages = with pkgs; [
     # Flakes clones its dependencies through the git command
     git
+    jq # added so bash scripts can parse json data
   ];
 }
