@@ -30,11 +30,11 @@ let
 
     # https://www.elastic.co/guide/en/elasticsearch/reference/8.13/bootstrap-checks-xpack.html#bootstrap-checks-tls
     # https://www.elastic.co/guide/en/elasticsearch/reference/current/security-settings.html
-    xpack.security.enabled: true
-    xpack.security.http.ssl.enabled: false
-    xpack.security.transport.ssl.enabled: false
-    xpack.security.remote_cluster_server.ssl.enabled: false
-    xpack.security.remote_cluster_client.ssl.enabled: false
+    xpack.security.enabled: false
+    # xpack.security.http.ssl.enabled: false
+    # xpack.security.transport.ssl.enabled: false
+    # xpack.security.remote_cluster_server.ssl.enabled: false
+    # xpack.security.remote_cluster_client.ssl.enabled: false
 
   '';
 
