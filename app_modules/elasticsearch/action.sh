@@ -36,6 +36,7 @@ done
 if [ "$CMD" = "init" ]; then
   echo "Initializing Elasticsearch security settings"
   # https://www.elastic.co/guide/en/elasticsearch/reference/8.15/security-minimal-setup.html
+  curl -s localhost:9200/_cluster/health
   podman exec -t elasticsearch ./bin/elasticsearch-reset-password -u elastic --auto --batch # --silent
   echo "Result Code: $?"
 fi
