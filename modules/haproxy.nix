@@ -32,7 +32,7 @@ in
   options.infrastructure.haproxy = {
     enable = lib.mkEnableOption (lib.mdDoc "HAProxy, the reliable, high performance TCP/HTTP load balancer.");
 
-    package = lib.mkPackageOptionMD pkgs "haproxy" { };
+    package = lib.mkPackageOption pkgs "haproxy" { };
 
     user = lib.mkOption {
       type = lib.types.str;

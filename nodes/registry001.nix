@@ -18,7 +18,9 @@
       #   };
       #
       enable = true;
-      signKeyPath = "/root/certs/cache.secret.pem";
+      signKeyPaths = [
+        "/root/certs/cache.secret.pem"
+      ];
       settings = {
         # default ip:hostname to bind to
         bind = "[%%localhost.overlayIp%%]:1099";
