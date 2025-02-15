@@ -28,7 +28,10 @@ let
     discovery.seed_hosts: ${clusterMembers}
     cluster.initial_master_nodes: ${clusterMasterNodes}
 
-    # https://www.elastic.co/guide/en/elasticsearch/reference/8.13/bootstrap-checks-xpack.html#bootstrap-checks-tls
+    # When activating xpack.security we need to set up certificates for cluster nodes
+    # to communicate with each other
+    # https://www.elastic.co/guide/en/elasticsearch/reference/current/manually-configure-security.html
+    # https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks-xpack.html#bootstrap-checks-tls
     # https://www.elastic.co/guide/en/elasticsearch/reference/current/security-settings.html
     xpack.security.enabled: false
     # xpack.security.autoconfiguration.enabled: true

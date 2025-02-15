@@ -35,7 +35,8 @@ done
 
 if [ "$CMD" = "init" ]; then
   echo "Initializing Elasticsearch security settings"
-  # https://www.elastic.co/guide/en/elasticsearch/reference/8.15/security-minimal-setup.html
+  echo "NOTE: This will only work once we change to 'xpack.security.enabled: true' and fix security setup"
+  # https://www.elastic.co/guide/en/elasticsearch/reference/current/manually-configure-security.html
   curl -s localhost:9200/_cluster/health
   podman exec -t elasticsearch ./bin/elasticsearch-reset-password -u elastic --auto --batch # --silent
   echo "Result Code: $?"
@@ -45,16 +46,6 @@ fi
 IP_ADDR=$(ifconfig flannel-wg | grep inet | awk '$1=="inet" {print $2}')
 URI=http://$IP_ADDR:9200
 AUTH_HEADER="Authorization: Basic $(echo -n "elastic:${ELASTIC_PASSWORD}" | base64)"
-
-# if [ "$CMD" = "indices" ]; then
-#   # curl -s -X GET -H "Content-Type: application/json" "$URI/?human&pretty"
-#   curl -k -s -X GET -H "Content-Type: application/json" "$URI/_cat/indices?v"
-# fi
-
-# if [ "$CMD" = "status" ]; then
-#   curl -k -s -X GET -H "Content-Type: application/json" "$URI/?human&pretty"
-#   # curl -k -s -X GET -H "Content-Type: application/json" "$URI/_cluster/health?human&pretty"
-# fi
 
 if [ "$CMD" = "status" ]; then
   # curl -k -s -X GET -H "Content-Type: application/json" -H "$AUTH_HEADER" "$URI/_cluster/health?pretty"
