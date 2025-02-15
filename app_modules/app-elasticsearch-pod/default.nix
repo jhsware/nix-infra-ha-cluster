@@ -56,7 +56,7 @@ in
         path = "";
         envPrefix = "APP_ELASTICSEARCH_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/app-elasticsearch-pod";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/app-elasticsearch-pod:latest";
       autoStart = true;
       networkType = "host";
       ports = [

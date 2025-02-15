@@ -51,7 +51,7 @@ in
         path = "";
         envPrefix = "APP_MONGODB_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/app-mongodb-pod";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/app-mongodb-pod:latest";
       autoStart = true;
       networkType = "host";
       ports = [
