@@ -45,7 +45,7 @@ in
         path = "";
         envPrefix = "APP_MONGODB_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/6076ff03714a";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/app-redis-pod";
       autoStart = true;
       networkType = "host";
       ports = [

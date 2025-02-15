@@ -45,7 +45,7 @@ in
         path = "";
         envPrefix = "APP_POD";
       };
-      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/898aea81215a";
+      image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/app-pod";
       autoStart = true;
       networkType = "host";
       ports = [
