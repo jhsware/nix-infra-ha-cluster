@@ -7,5 +7,6 @@
     ./mongodb
     ./elasticsearch
     ./keydb
+    ./mariadb
   ];
 }
