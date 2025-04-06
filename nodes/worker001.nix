@@ -40,5 +40,14 @@
     elasticsearchConnectionStringSecretName = "[%%secrets/elasticsearch.connectionString%%]";
   };
 
-  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 11211 11311 11411 11511 ];
+  config.infrastructure.app-mariadb-pod = {
+    # TODO: Update test script and create a docker image
+    enable = true;
+    bindToIp = "[%%localhost.overlayIp%%]";
+    # mariadbConnectionString = "mysql://username:password@[%%service001.overlayIp%%]:3306,[%%service002.overlayIp%%]:3306,[%%service003.overlayIp%%]:3306/db?connectionLimit=10&failoverServer=true&multipleStatements=true";
+    mariadbConnectionString = "[%%secrets/mariadb.connectionString%%]";
+  };
+
+
+  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 11211 11311 11411 11511 11611 ];
 }
