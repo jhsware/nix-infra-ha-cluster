@@ -99,7 +99,9 @@ in
 
           # Galera Cluster Configuration
           wsrep_cluster_name="${cfg.clusterName}"
-          wsrep_cluster_address="gcomm://${builtins.concatStringsSep "," cfg.nodeAddresses}"
+          wsrep_cluster_address="gcomm://${builtins.concatStringsSep "," (
+            builtins.map (ip: "${ip}:${toString cfg.galeraPort}") cfg.nodeAddresses
+          )}"
 
           # Galera Synchronization Configuration
           wsrep_sst_method=rsync
