@@ -114,9 +114,10 @@ in
         MARIADB_GALERA_CLUSTER = "ON";
       };
 
-      cmd = [
-        "--wsrep-new-cluster"
-      ];
+      cmd = if cfg.bindToIp == (builtins.elemAt cfg.nodeAddresses 0) then 
+        ["--wsrep-new-cluster"] 
+      else 
+        [];
 
       execHooks = {
         ExecStartPre = [
