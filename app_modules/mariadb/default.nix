@@ -8,6 +8,8 @@ let
   dataDir = "/var/lib/mariadb-cluster";
   execStartPreScript = pkgs.writeShellScript "preStart" ''
     ${pkgs.coreutils}/bin/mkdir -p ${dataDir}
+    # Clean up stale SST files if they exist
+    ${pkgs.coreutils}/bin/rm -f ${dataDir}/rsync_sst* ${dataDir}/sst_in_progress
   '';
 in
 {
