@@ -11,6 +11,24 @@ let
     # Clean up stale SST files if they exist
     ${pkgs.coreutils}/bin/rm -f ${dataDir}/rsync_sst* ${dataDir}/sst_in_progress
   '';
+
+  primaryAddress = builtins.elemAt cfg.nodeAddresses 0;
+  # Extract just the host part if the address includes a port
+  primaryHost = builtins.head (builtins.split ":" primaryAddress);
+  checkPrimaryScript = pkgs.writeShellScript "check-primary" ''
+    RETRIES=30
+    while [ $RETRIES -gt 0 ]; do
+      if ${pkgs.mariadb}/bin/mysql -h ${primaryHost} -P ${toString cfg.bindToPort} \
+         -u root -p${cfg.rootPassword} -e "SHOW STATUS LIKE 'wsrep_cluster_status'" | grep -q "Primary"; then
+        exit 0
+      fi
+      echo "Primary node not ready yet, waiting..."
+      sleep 10
+      RETRIES=$((RETRIES-1))
+    done
+    echo "Primary node failed to start, giving up"
+    exit 1
+  '';
 in
 {
   options.infrastructure.${appName} = {
@@ -123,7 +141,12 @@ in
       else 
         [];
 
-      execHooks = {
+      execHooks = if cfg.bindToIp != (builtins.elemAt cfg.nodeAddresses 0) then {
+        ExecStartPre = [
+          "${execStartPreScript}"
+          "${checkPrimaryScript}"
+        ];
+      } else {
         ExecStartPre = [
           "${execStartPreScript}"
         ];
