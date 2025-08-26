@@ -43,7 +43,7 @@ in
         serviceGroup = "frontends";
         port = cfg.bindToPort;
         path = "";
-        envPrefix = "APP_MONGODB_POD";
+        envPrefix = "APP_REDIS_POD";
       };
       image = "${config.infrastructure.podman.dockerRegistryHostPort}/apps/app-redis-pod:latest";
       autoStart = true;

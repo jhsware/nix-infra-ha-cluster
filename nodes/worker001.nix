@@ -44,8 +44,7 @@
     # TODO: Update test script and create a docker image
     enable = true;
     bindToIp = "[%%localhost.overlayIp%%]";
-    # mariadbConnectionString = "mysql://username:password@[%%service001.overlayIp%%]:3306,[%%service002.overlayIp%%]:3306,[%%service003.overlayIp%%]:3306/db?connectionLimit=10&failoverServer=true&multipleStatements=true";
-    mariadbConnectionString = "[%%secrets/mariadb.connectionString%%]";
+    mariadbConnectionStringSecretName = "[%%secrets/mariadb.connectionString%%]";
   };
 
 

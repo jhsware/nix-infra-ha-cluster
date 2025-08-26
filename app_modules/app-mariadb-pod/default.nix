@@ -23,10 +23,9 @@ in
       default = appPort;
     };
 
-    mariadbConnectionString = lib.mkOption {
+    mariadbConnectionStringSecretName = lib.mkOption {
       type = lib.types.str;
-      description = "MariaDB connection string.";
-      default = "127.0.0.1";
+      description = "Name of the installed systemd credential.";
     };
 
     # secretName = lib.mkOption {
@@ -62,11 +61,13 @@ in
       #   { name = cfg.secretName; envVar="MY_TEST"; }
       # ];
       environment = {
-        # CONNECTION_STRING =  "mysql://root:password@localhost:3306/test";
-        CONNECTION_STRING = cfg.mariadbConnectionString;
         NODE_ENV = "production";
         EXPOSE = "${toString cfg.bindToPort}";
       };
+      environmentSecrets = [
+        # mariadbConnectionString = "mysql://username:password@[%%service001.overlayIp%%]:3306,[%%service002.overlayIp%%]:3306,[%%service003.overlayIp%%]:3306/db?connectionLimit=10&failoverServer=true&multipleStatements=true";
+        { name = cfg.mariadbConnectionStringSecretName; envVar="CONNECTION_STRING"; }
+      ];
     };
 
   };
