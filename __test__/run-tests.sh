@@ -176,7 +176,7 @@ if [ "$CMD" = "reset" ]; then
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
 
-  wait 3
+  sleep 3
 
   $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d $WORK_DIR --target="$CTRL_NODES"
   $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d $WORK_DIR --target="$CTRL_NODES"
