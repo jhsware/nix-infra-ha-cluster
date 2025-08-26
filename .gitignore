@@ -1,5 +1,6 @@
 .env
 # These are the application configuration secrets passed to systemd credentials
 secrets/*
+ssh/*
 # This is the certificate authority
 ca/*

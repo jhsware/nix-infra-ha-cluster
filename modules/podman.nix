@@ -7,9 +7,9 @@ in
     enable = lib.mkEnableOption "infrastructure.podman";
 
     dockerRegistryHostPort = lib.mkOption {
-      type = lib.types.str;
+      type = lib.types.nullOr lib.types.str;
       description = "Docker Registry IP address";
-      default = "127.0.0.1:5000";
+      default = null;
     };
   };
 
@@ -30,10 +30,11 @@ in
     };
 
     # Add insecure registry
-    virtualisation.containers.registries.insecure = [ "${cfg.dockerRegistryHostPort}" ];
-    # virtualisation.containers.registries."10.10.93.0:5000".insecure = true;
+    virtualisation.containers.registries = lib.mkIf (cfg.dockerRegistryHostPort != null) {
+      insecure = [ "${cfg.dockerRegistryHostPort}" ];
+    };
 
-    # Useful otherdevelopment tools
+    # Useful development tools
     environment.systemPackages = with pkgs; [
       # dive # look into docker image layers
       podman-tui # status of containers in the terminal

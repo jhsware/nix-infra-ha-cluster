@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 read -p "Enter folder name [nix-infra-ha-cluster]: " name
-name=${name:-nix-infra-ha-cluster}
+name=${name:-nix-infra-test}
 
 mkdir -p $name
 
@@ -16,8 +16,8 @@ fetch() {
   chmod $1 $3
 }
 
-fetch 755 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/test-nix-infra-ha-base.sh $name/test-nix-infra-ha-base.sh
-fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/check.sh $name/check.sh
+fetch 755 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/__test__/run-tests.sh $name/test-nix-infra-ha-base.sh
+fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/__test__/check.sh $name/check.sh
 fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/.env.in $name/.env
 echo "Done!"
 echo
