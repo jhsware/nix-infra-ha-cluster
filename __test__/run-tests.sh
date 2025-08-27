@@ -124,7 +124,7 @@ if [ "$CMD" = "run" ]; then
         TEST_DIR="__test__/$REST" CMD="teardown" source "$WORK_DIR/__test__/$_test_name/test.sh"
       fi
     fi
-  DONE
+  done
 
   exit 0
 fi
