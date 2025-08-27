@@ -117,11 +117,6 @@ if [ "$CMD" = "reset" ]; then
     exit 1
   fi
 
-  if [ ! -d "$WORK_DIR/__test__/$REST" ]; then
-    echo "Test directory doesn't exist (__test__/$REST)"
-    exit 1
-  fi
-
   echo "Cleaning up node configuration..."
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" 'rm -f /etc/nixos/$(hostname).nix'
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
@@ -136,7 +131,13 @@ if [ "$CMD" = "reset" ]; then
   wait
 
   echo "Tearing down the test..."
-  TEST_DIR="__test__/$REST" CMD="teardown" source "$WORK_DIR/__test__/$REST/test.sh"
+  for _test_name in $REST; do
+    if [ ! -d "$WORK_DIR/__test__/$_test_name" ]; then
+      echo "Test directory doesn't exist (__test__/$_test_name)"
+    else
+      TEST_DIR="__test__/$REST" CMD="teardown" source "$WORK_DIR/__test__/$_test_name/test.sh"
+    fi
+  done
 
   echo "...reset complete!"
   exit 0
