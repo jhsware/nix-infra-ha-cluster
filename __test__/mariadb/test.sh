@@ -36,7 +36,7 @@ if [ "$CMD" = "publish" ]; then
 fi
 
 if [ "$CMD" = "teardown" ]; then
-  local _cmd_ = 'if ! systemctl cat podman-mariadb-cluster.service &>/dev/null; then rm -rf "/var/lib/mariadb-cluster"; fi'
+  _cmd_ = 'if ! systemctl cat podman-mariadb-cluster.service &>/dev/null; then rm -rf "/var/lib/mariadb-cluster"; fi'
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES" "$_cmd_"
   exit 0
 fi
