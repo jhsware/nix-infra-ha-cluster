@@ -36,7 +36,7 @@ if [ "$CMD" = "publish" ]; then
 fi
 
 if [ "$CMD" = "teardown" ]; then
-  _cmd_ = 'if ! systemctl cat podman-keydb-ha.service &>/dev/null; then rm -rf "/var/lib/keydb-ha"; fi'
+  _cmd_='if ! systemctl cat podman-keydb-ha.service &>/dev/null; then rm -rf "/var/lib/keydb-ha"; fi'
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES" "$_cmd_"
   exit 0
 fi

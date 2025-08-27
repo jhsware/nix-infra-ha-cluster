@@ -113,7 +113,7 @@ if [ "$CMD" = "run" ]; then
     if [ ! -d "$WORK_DIR/__test__/$_test_name" ]; then
       echo "Test directory doesn't exist (__test__/$_test_name)"
     else
-      TEST_DIR="__test__/$REST" source "$WORK_DIR/__test__/$REST/test.sh"
+      TEST_DIR="__test__/$_test_name" source "$WORK_DIR/__test__/$_test_name/test.sh"
 
       if [ "$_test_name" != "$last_test" ]; then
         $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d $WORK_DIR --target="$CTRL_NODES" &
