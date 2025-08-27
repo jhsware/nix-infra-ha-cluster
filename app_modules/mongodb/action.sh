@@ -93,7 +93,7 @@ if [ "$CMD" = "create-db" ]; then
   # Create role and user in MongoDB
   podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
     // First check if database exists using currentOp instead of listDatabases
-    let db = db.getSiblingDB('$DATABASE');
+    let currentDb = db.getSiblingDB('$DATABASE');
     if (currentDb !== undefined) {
       let dbExists = currentDb.stats().ok;
       if (dbExists) {
@@ -103,8 +103,8 @@ if [ "$CMD" = "create-db" ]; then
     }
 
     // Create the database, but remove the collection immediately
-    db.createCollection('temp');
-    db.temp.drop();
+    currentDb.createCollection('temp');
+    currentDb.temp.drop();
     
     // Create roles
     db.createRole({

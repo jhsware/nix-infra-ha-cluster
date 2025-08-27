@@ -102,7 +102,30 @@ if [ "$CMD" = "run" ]; then
     echo "Working directory doesn't exist ($WORK_DIR)"
     exit 1
   fi
-  TEST_DIR="__test__/$REST" source "$WORK_DIR/__test__/$REST/test.sh"
+
+  if [ "$REST" == "" ]; then
+    echo "Missing test(s) name"
+    exit 1
+  fi
+
+  last_test="${REST##* }"
+  for _test_name in $REST; do
+    if [ ! -d "$WORK_DIR/__test__/$_test_name" ]; then
+      echo "Test directory doesn't exist (__test__/$_test_name)"
+    else
+      TEST_DIR="__test__/$REST" source "$WORK_DIR/__test__/$REST/test.sh"
+
+      if [ "$_test_name" != "$last_test" ]; then
+        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d $WORK_DIR --target="$CTRL_NODES" &
+        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d $WORK_DIR --target="$CTRL_NODES" &
+        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/frontends" -d $WORK_DIR --target="$CTRL_NODES" &
+        wait
+
+        TEST_DIR="__test__/$REST" CMD="teardown" source "$WORK_DIR/__test__/$_test_name/test.sh"
+      fi
+    fi
+  DONE
+
   exit 0
 fi
 
@@ -113,7 +136,7 @@ if [ "$CMD" = "reset" ]; then
   fi
 
   if [ "$REST" == "" ]; then
-    echo "Missing test name"
+    echo "Missing test(s) name"
     exit 1
   fi
 
