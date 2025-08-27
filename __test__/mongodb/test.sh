@@ -32,13 +32,13 @@ publishImageToRegistry() {
 if [ "$CMD" = "publish" ]; then
   echo Publish applications...
   publishImageToRegistry app-mongodb-pod "$WORK_DIR/app_images/app-mongodb-pod.tar.gz" "1.0"
-  exit 0
+  return 0
 fi
 
 if [ "$CMD" = "teardown" ]; then
   _cmd_='if ! systemctl cat podman-mongodb-4.service &>/dev/null; then rm -rf "/var/lib/mongodb-4"; fi'
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES" "$_cmd_"
-  exit 0
+  return 0
 fi
 
 

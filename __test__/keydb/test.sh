@@ -32,13 +32,13 @@ publishImageToRegistry() {
 if [ "$CMD" = "publish" ]; then
   echo Publish applications...
   publishImageToRegistry app-redis-pod "$WORK_DIR/app_images/app-redis-pod.tar.gz" "1.0"
-  exit 0
+  return 0
 fi
 
 if [ "$CMD" = "teardown" ]; then
   _cmd_='if ! systemctl cat podman-keydb-ha.service &>/dev/null; then rm -rf "/var/lib/keydb-ha"; fi'
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES" "$_cmd_"
-  exit 0
+  return 0
 fi
 
 _start=`date +%s`

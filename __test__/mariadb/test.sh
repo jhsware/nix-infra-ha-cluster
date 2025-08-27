@@ -32,13 +32,13 @@ publishImageToRegistry() {
 if [ "$CMD" = "publish" ]; then
   echo Publish applications...
   publishImageToRegistry app-mariadb-pod "$WORK_DIR/app_images/app-mariadb-pod.tar.gz" "1.0"
-  exit 0
+  return 0
 fi
 
 if [ "$CMD" = "teardown" ]; then
   _cmd_='if ! systemctl cat podman-mariadb-cluster.service &>/dev/null; then rm -rf "/var/lib/mariadb-cluster"; fi'
   $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES" "$_cmd_"
-  exit 0
+  return 0
 fi
 
 
