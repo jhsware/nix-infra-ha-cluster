@@ -49,9 +49,11 @@ $0 action --env=.env-test --target=service001 args to action
 EOF
 )
 
-if [[ "create-cluster test-cluster teardown-cluster run teardown reset update ssh cmd etcd action" == *"$1"* ]]; then
+if [[ "create run reset teardown pull publish update test test-apps ssh cmd etcd action" == *"$1"* ]]; then
   CMD="$1"
   shift
+else
+  CMD="create"
 fi
 
 for i in "$@"; do
@@ -104,14 +106,42 @@ if [ "$CMD" = "run" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "teardown" ]; then
+if [ "$CMD" = "reset" ]; then
   if [ ! -d $WORK_DIR ]; then
     echo "Working directory doesn't exist ($WORK_DIR)"
     exit 1
   fi
-  TEST_DIR="__test__/$REST" source "$WORK_DIR/__test__/$REST/test.sh"
+
+  if [ "$REST" == "" ]; then
+    echo "Missing test name"
+    exit 1
+  fi
+
+  if [ ! -d "$WORK_DIR/__test__/$REST" ]; then
+    echo "Test directory doesn't exist (__test__/$REST)"
+    exit 1
+  fi
+
+  echo "Cleaning up node configuration..."
+  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" 'rm -f /etc/nixos/$(hostname).nix'
+  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
+  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
+
+  sleep 1
+
+  echo "Cleaning up etcd..."
+  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d $WORK_DIR --target="$CTRL_NODES" &
+  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d $WORK_DIR --target="$CTRL_NODES" &
+  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/frontends" -d $WORK_DIR --target="$CTRL_NODES" &
+  wait
+
+  echo "Tearing down the test..."
+  TEST_DIR="__test__/$REST" CMD="teardown" source "$WORK_DIR/__test__/$REST/test.sh"
+
+  echo "...reset complete!"
   exit 0
 fi
+
 
 source $SCRIPT_DIR/check.sh
 
@@ -158,7 +188,7 @@ cleanupOnFail() {
   fi
 }
 
-if [ "$CMD" = "teardown-cluster" ]; then
+if [ "$CMD" = "teardown" ]; then
   tearDownCluster
   exit 0
 fi
@@ -178,21 +208,21 @@ if [ "$CMD" = "update" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "reset" ]; then
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "rm -f /etc/nixos/$(hostname).nix"
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
-
-  sleep 3
-
-  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d $WORK_DIR --target="$CTRL_NODES"
-  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d $WORK_DIR --target="$CTRL_NODES"
-  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/frontends" -d $WORK_DIR --target="$CTRL_NODES"
+if [ "$CMD" = "test" ]; then
+  testCluster
   exit 0
 fi
 
-if [ "$CMD" = "test-cluster" ]; then
-  testCluster
+if [ "$CMD" = "publish" ]; then
+  echo Publish applications...
+  publishImageToRegistry app-mariadb-pod "$WORK_DIR/app_images/app-mariadb-pod.tar.gz" "1.0"
+  exit 0
+fi
+
+if [ "$CMD" = "pull" ]; then
+  # Fallback if ssh terminal isn't working as expected:
+  # HCLOUD_TOKEN=$HCLOUD_TOKEN hcloud server ssh $REST -i $WORK_DIR/ssh/$SSH_KEY
+  git -C $WORK_DIR pull
   exit 0
 fi
 
@@ -239,7 +269,7 @@ if [ "$CMD" = "etcd" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "create-cluster" ]; then
+if [ "$CMD" = "create" ]; then
   if [ -d $WORK_DIR ]; then
     if [ "$FORCE" != "yes" ]; then
       echo "Test directory already exists! Exiting..."
