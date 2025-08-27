@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [[ "publish update" == *"$1"* ]]; then
+if [[ "publish teardown" == *"$1"* ]]; then
   CMD="$1"
   shift
 fi
@@ -29,37 +29,15 @@ publishImageToRegistry() {
       --use-localhost
 }
 
-if [ "$CMD" = "update" ]; then
-  if [ -z "$REST" ]; then
-    echo "Usage: $0 update --env=$ENV [node1 node2 ...]"
-    exit 1
-  fi
-  (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
-
-  # $NIX_INFRA secrets store -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-  #   --secret="mysql://root:your-secure-password@[%%service001.overlayIp%%]:3306/test?&connectTimeout=10000&connectionLimit=10&multipleStatements=true" \
-  #   --name="mariadb.connectionString"
-  #$NIX_INFRA cluster deploy-apps -d $WORK_DIR --batch --env="$WORK_DIR/.env" --target="$REST"
-  #$NIX_INFRA cluster cmd -d $WORK_DIR --target="$REST" "nixos-rebuild switch --fast"
-  # publishImageToRegistry app-mariadb-pod "$WORK_DIR/app_images/app-mariadb-pod.tar.gz" "1.0"
-  # $NIX_INFRA cluster cmd -d $WORK_DIR --target="$REST" "systemctl restart podman-app-mariadb-pod"
-  # $NIX_INFRA cluster cmd -d $WORK_DIR --target="$REST" "curl --max-time 2 -s 'http://127.0.0.1:11611/db?id=1&message=hello'"
-  # sleep 10
-  # $NIX_INFRA cluster action -d $WORK_DIR --target="service001" --app-module="mariadb" --cmd="status"
-  
-  #$NIX_INFRA cluster cmd -d $WORK_DIR --target="$REST" "ls /etc/nixos/app_modules"
-  # $NIX_INFRA cluster update-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-  #   --nixos-version=$NIXOS_VERSION \
-  #   --node-module="node_types/cluster_node.nix" \
-  #   --ctrl-nodes="$CTRL_NODES" \
-  #   --target="service001 service002 service003"
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="worker001" "systemctl restart podman-app-mariadb-pod"
-  exit 0
-fi
-
 if [ "$CMD" = "publish" ]; then
   echo Publish applications...
   publishImageToRegistry app-mariadb-pod "$WORK_DIR/app_images/app-mariadb-pod.tar.gz" "1.0"
+  exit 0
+fi
+
+if [ "$CMD" = "teardown" ]; then
+  local _cmd_ = 'if ! systemctl cat podman-mariadb-cluster.service &>/dev/null; then rm -rf "/var/lib/mariadb-cluster"; fi'
+  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES" "$_cmd_"
   exit 0
 fi
 

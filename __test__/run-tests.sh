@@ -49,11 +49,9 @@ $0 action --env=.env-test --target=service001 args to action
 EOF
 )
 
-if [[ "create run reset teardown pull publish update test test-apps ssh cmd etcd action" == *"$1"* ]]; then
+if [[ "create-cluster test-cluster teardown-cluster run teardown reset update ssh cmd etcd action" == *"$1"* ]]; then
   CMD="$1"
   shift
-else
-  CMD="create"
 fi
 
 for i in "$@"; do
@@ -98,6 +96,15 @@ if [ -z "$HCLOUD_TOKEN" ]; then
 fi
 
 if [ "$CMD" = "run" ]; then
+  if [ ! -d $WORK_DIR ]; then
+    echo "Working directory doesn't exist ($WORK_DIR)"
+    exit 1
+  fi
+  TEST_DIR="__test__/$REST" source "$WORK_DIR/__test__/$REST/test.sh"
+  exit 0
+fi
+
+if [ "$CMD" = "teardown" ]; then
   if [ ! -d $WORK_DIR ]; then
     echo "Working directory doesn't exist ($WORK_DIR)"
     exit 1
@@ -151,7 +158,7 @@ cleanupOnFail() {
   fi
 }
 
-if [ "$CMD" = "teardown" ]; then
+if [ "$CMD" = "teardown-cluster" ]; then
   tearDownCluster
   exit 0
 fi
@@ -184,21 +191,8 @@ if [ "$CMD" = "reset" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "test" ]; then
+if [ "$CMD" = "test-cluster" ]; then
   testCluster
-  exit 0
-fi
-
-if [ "$CMD" = "publish" ]; then
-  echo Publish applications...
-  publishImageToRegistry app-mariadb-pod "$WORK_DIR/app_images/app-mariadb-pod.tar.gz" "1.0"
-  exit 0
-fi
-
-if [ "$CMD" = "pull" ]; then
-  # Fallback if ssh terminal isn't working as expected:
-  # HCLOUD_TOKEN=$HCLOUD_TOKEN hcloud server ssh $REST -i $WORK_DIR/ssh/$SSH_KEY
-  git -C $WORK_DIR pull
   exit 0
 fi
 
@@ -245,7 +239,7 @@ if [ "$CMD" = "etcd" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "create" ]; then
+if [ "$CMD" = "create-cluster" ]; then
   if [ -d $WORK_DIR ]; then
     if [ "$FORCE" != "yes" ]; then
       echo "Test directory already exists! Exiting..."
