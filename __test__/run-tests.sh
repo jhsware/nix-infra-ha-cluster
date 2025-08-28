@@ -3,8 +3,6 @@ SCRIPT_DIR=$(dirname $0)
 WORK_DIR=${WORK_DIR:-"."}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
 NIXOS_VERSION=${NIXOS_VERSION:-"24.11"}
-TEMPLATE_REPO=${TEMPLATE_REPO:-"git@github.com:jhsware/nix-infra-test.git"}
-TEMPLATE_REPO_BRANCH=${TEMPLATE_REPO_BRANCH:-"main"}
 SSH_KEY="nixinfra"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
@@ -31,11 +29,11 @@ $ bash <(curl -fsSL https://github.com/jhsware/nix-infra-ha-cluster/refs/heads/m
 
 Run the test from a local development branch:
 
-$ TEMPLATE_REPO=../nix-infra-ha-cluster/ \$TEMPLATE_REPO/$TEST_DIR/run.sh --branch=mariadb-cluster --env=.env-test | tee test.log
+$ run-tests.sh create | tee test.log
 
 ...don't tear it down
 
-$ TEMPLATE_REPO=../nix-infra-ha-cluster/ \$TEMPLATE_REPO/$TEST_DIR/test.sh --branch=mariadb-cluster --env=.env-test --no-teardown | tee test.log
+$ TEMPLATE_REPO=../nix-infra-ha-cluster/ \$TEMPLATE_REPO/$TEST_DIR/test.sh --branch=mariadb-cluster --env=.env-test | tee test.log
 
 # Interact with a node
 $0 ssh --env=.env-test service001
@@ -68,18 +66,6 @@ for i in "$@"; do
     ;;
     --target=*)
     TARGET="${i#*=}"
-    shift
-    ;;
-    --branch=*)
-    TEMPLATE_REPO_BRANCH="${i#*=}"
-    shift
-    ;;
-    --no-teardown)
-    TEARDOWN=no
-    shift
-    ;;
-    --force)
-    FORCE=yes
     shift
     ;;
     *)
@@ -294,15 +280,6 @@ if [ "$CMD" = "etcd" ]; then
 fi
 
 if [ "$CMD" = "create" ]; then
-  if [ -d $WORK_DIR ]; then
-    if [ "$FORCE" != "yes" ]; then
-      echo "Test directory already exists! Exiting..."
-      exit 1
-    fi
-    rm -rf $WORK_DIR;
-  fi
-  git clone -b $TEMPLATE_REPO_BRANCH $TEMPLATE_REPO $WORK_DIR
-
   env=$(cat <<EOF
 # NOTE: The following secrets are required for various operations
 # by the nix-infra CLI. Make sure they are encrypted when not in use
@@ -384,12 +361,6 @@ EOF
   echo "******************************************"
 
   _end=`date +%s`
-
-  if [[ "$TEARDOWN" != "no" ]]; then
-    tearDownCluster
-  fi
-
-  _after_teardown=`date +%s`
 
   echo "            **              **            "
   echo "            **              **            "
