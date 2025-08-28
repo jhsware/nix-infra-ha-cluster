@@ -2,7 +2,7 @@
 SCRIPT_DIR=$(dirname $0)
 WORK_DIR=${WORK_DIR:-"."}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
-NIXOS_VERSION=${NIXOS_VERSION:-"24.11"}
+NIXOS_VERSION=${NIXOS_VERSION:-"24.05"}
 SSH_KEY="nixinfra"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
@@ -51,7 +51,8 @@ if [[ "create run reset teardown pull publish update test test-apps ssh cmd etcd
   CMD="$1"
   shift
 else
-  CMD="create"
+  echo "$__help_text__"
+  exit 1
 fi
 
 for i in "$@"; do
@@ -280,7 +281,8 @@ if [ "$CMD" = "etcd" ]; then
 fi
 
 if [ "$CMD" = "create" ]; then
-  env=$(cat <<EOF
+  if [ ! -f "$ENV" ]; then
+    env=$(cat <<EOF
 # NOTE: The following secrets are required for various operations
 # by the nix-infra CLI. Make sure they are encrypted when not in use
 SSH_KEY=$(echo $SSH_KEY)
@@ -306,14 +308,16 @@ INTERMEDIATE_CA_PASS=$(echo $INTERMEDIATE_CA_PASS)
 SECRETS_PWD=$(echo $SECRETS_PWD)
 EOF
 )
-  echo "$env" > $WORK_DIR/.env
+    echo "$env" > $WORK_DIR/.env
+  fi
 
   _start=`date +%s`
 
   $NIX_INFRA init -d $WORK_DIR --batch
-
   # We need to add the ssh-key for it to work for some reason
   ssh-add $WORK_DIR/ssh/$SSH_KEY
+  
+  echo "Provisioning NixOS $NIXOS_VERSION"
 
   # Provision the test cluster
   $NIX_INFRA cluster provision -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
