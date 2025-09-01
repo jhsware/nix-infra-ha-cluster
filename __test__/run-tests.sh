@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-SCRIPT_DIR=$(dirname $0)
-WORK_DIR=${WORK_DIR:-"."}
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+WORK_DIR=${WORK_DIR:-$(dirname "$SCRIPT_DIR")}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
-NIXOS_VERSION=${NIXOS_VERSION:-"24.05"}
+NIXOS_VERSION=${NIXOS_VERSION:-"25.05"}
 SSH_KEY="nixinfra"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
@@ -47,7 +47,7 @@ $0 action --env=.env-test --target=service001 args to action
 EOF
 )
 
-if [[ "create run reset teardown pull publish update test test-apps ssh cmd etcd action" == *"$1"* ]]; then
+if [[ "create upgrade run reset teardown pull publish update test test-apps ssh cmd etcd action" == *"$1"* ]]; then
   CMD="$1"
   shift
 else
@@ -60,6 +60,10 @@ for i in "$@"; do
     --help)
     echo "$__help_text__"
     exit 0
+    ;;
+    --no-teardown)
+    NO_TEARDOWN="true"
+    shift
     ;;
     --env=*)
     ENV="${i#*=}"
@@ -102,7 +106,7 @@ if [ "$CMD" = "run" ]; then
     else
       TEST_DIR="__test__/$_test_name" source "$WORK_DIR/__test__/$_test_name/test.sh"
 
-      if [ "$_test_name" != "$last_test" ]; then
+      if [ "$_test_name" != "$last_test" ] || [ "$NO_TEARDOWN" != "true" ]; then
         $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d $WORK_DIR --target="$CTRL_NODES" &
         $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d $WORK_DIR --target="$CTRL_NODES" &
         $NIX_INFRA cluster etcd ctl "del --prefix /cluster/frontends" -d $WORK_DIR --target="$CTRL_NODES" &
@@ -113,6 +117,12 @@ if [ "$CMD" = "run" ]; then
     fi
   done
 
+  if [ "$NO_TEARDOWN" != "true" ]; then
+    $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" 'rm -f /etc/nixos/$(hostname).nix'
+    $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
+    $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
+  fi
+  
   exit 0
 fi
 
@@ -154,11 +164,7 @@ if [ "$CMD" = "reset" ]; then
 fi
 
 
-source $SCRIPT_DIR/check.sh
-
-cmd () { # Override the local declaration
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$1" "$2"
-}
+source $SCRIPT_DIR/shared.sh
 
 testCluster() {
   checkNixos "$CTRL_NODES $SERVICE_NODES $OTHER_NODES"
@@ -166,6 +172,7 @@ testCluster() {
   checkWireguard "$SERVICE_NODES $OTHER_NODES"
   checkConfd "$SERVICE_NODES $OTHER_NODES"
 }
+
 
 publishImageToRegistry() {
     local IMAGE_NAME=$1
@@ -212,9 +219,22 @@ if [ "$CMD" = "update" ]; then
   (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
 
   $NIX_INFRA cluster update-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-    --nixos-version=$NIXOS_VERSION \
+    --nixos-version="$NIXOS_VERSION" \
     --node-module="node_types/cluster_node.nix" \
     --ctrl-nodes="$CTRL_NODES" \
+    --target="$SERVICE_NODES $OTHER_NODES"
+  exit 0
+fi
+
+if [ "$CMD" = "upgrade" ]; then
+  if [ -z "$REST" ]; then
+    echo "Usage: $0 upgrade --env=$ENV [--nixos-version=$NIXOS_VERSION] [node1 node2 ...]"
+    exit 1
+  fi
+  (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
+
+  $NIX_INFRA cluster upgrade-nixos -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+    --nixos-version="$NIXOS_VERSION" \
     --target="$SERVICE_NODES $OTHER_NODES"
   exit 0
 fi
@@ -227,56 +247,6 @@ fi
 if [ "$CMD" = "publish" ]; then
   echo Publish applications...
   publishImageToRegistry app-mariadb-pod "$WORK_DIR/app_images/app-mariadb-pod.tar.gz" "1.0"
-  exit 0
-fi
-
-if [ "$CMD" = "pull" ]; then
-  # Fallback if ssh terminal isn't working as expected:
-  # HCLOUD_TOKEN=$HCLOUD_TOKEN hcloud server ssh $REST -i $WORK_DIR/ssh/$SSH_KEY
-  git -C $WORK_DIR pull
-  exit 0
-fi
-
-if [ "$CMD" = "ssh" ]; then
-  if [ -z "$REST" ]; then
-    echo "Usage: $0 ssh --env=$ENV [node]"
-    exit 1
-  fi
-  # Fallback if ssh terminal isn't working as expected:
-  # HCLOUD_TOKEN=$HCLOUD_TOKEN hcloud server ssh $REST -i $WORK_DIR/ssh/$SSH_KEY
-  $NIX_INFRA cluster ssh -d $WORK_DIR --target="$REST"
-  exit 0
-fi
-
-if [ "$CMD" = "action" ]; then
-  if [ -z "$REST" ]; then
-    echo "Usage: $0 action [target] [cmd]"
-    exit 1
-  fi
-  
-  read -r module cmd < <(echo "$REST")
-  _target=${TARGET:-"service001"}
-  # (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
-  $NIX_INFRA cluster action -d $WORK_DIR --target="$_target" --app-module="$module" \
-    --cmd="$cmd" # --env-vars="ELASTIC_PASSWORD="
-  exit 0
-fi
-
-if [ "$CMD" = "cmd" ]; then
-  if [ -z "$TARGET" ] || [ -z "$REST" ]; then
-    echo "Usage: $0 cmd --env=$ENV --target=[node] [cmd goes here]"
-    exit 1
-  fi
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$TARGET" "$REST"
-  exit 0
-fi
-
-if [ "$CMD" = "etcd" ]; then
-  if [ -z "$REST" ]; then
-    echo "Usage: $0 etcd --env=$ENV [services | frontends | backends | network | nodes]"
-    exit 1
-  fi
-  $NIX_INFRA cluster etcd $REST -d $WORK_DIR --target="$CTRL_NODES"
   exit 0
 fi
 
@@ -317,11 +287,11 @@ EOF
   # We need to add the ssh-key for it to work for some reason
   ssh-add $WORK_DIR/ssh/$SSH_KEY
   
-  echo "Provisioning NixOS $NIXOS_VERSION"
-
   # Provision the test cluster
+  echo "*** Provisioning NixOS $NIXOS_VERSION ***"
+
   $NIX_INFRA cluster provision -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-      --nixos-version=$NIXOS_VERSION \
+      --nixos-version="$NIXOS_VERSION" \
       --ssh-key=$SSH_KEY \
       --location=hel1 \
       --machine-type=cpx21 \
@@ -332,21 +302,21 @@ EOF
   _provision=`date +%s`
 
   $NIX_INFRA cluster init-ctrl -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-      --nixos-version=$NIXOS_VERSION \
+      --nixos-version="$NIXOS_VERSION" \
       --cluster-uuid="d6b76143-bcfa-490a-8f38-91d79be62fab" \
       --target="$CTRL_NODES"
 
   sleep 3 # allow etcd to start
 
   $NIX_INFRA cluster init-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-      --nixos-version=$NIXOS_VERSION \
+      --nixos-version="$NIXOS_VERSION" \
       --target="$SERVICE_NODES" \
       --node-module="node_types/cluster_node.nix" \
       --service-group="services" \
       --ctrl-nodes="$CTRL_NODES"
 
   $NIX_INFRA cluster init-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-      --nixos-version=$NIXOS_VERSION \
+      --nixos-version="$NIXOS_VERSION" \
       --target="$OTHER_NODES" \
       --node-module="node_types/cluster_node.nix" \
       --service-group="backends" \
