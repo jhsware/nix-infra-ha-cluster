@@ -79,8 +79,8 @@ $NIX_INFRA cluster cmd -d $WORK_DIR --target="worker001" "systemctl restart podm
 echo -e "\n** MongoDB **"
 $NIX_INFRA cluster action -d $WORK_DIR --target="service001" --app-module="mongodb" --cmd="init" --env-vars="NODE_1=[%%service001.overlayIp%%],NODE_2=[%%service002.overlayIp%%],NODE_3=[%%service003.overlayIp%%]"
 $NIX_INFRA cluster action -d $WORK_DIR --target="service001" --app-module="mongodb" --cmd="create-db --database=hello"
-$NIX_INFRA cluster action -d $WORK_DIR --target="service001" --app-module="mongodb" --cmd="create-db --database=test"
-$NIX_INFRA cluster action -d $WORK_DIR --target="service001" --app-module="mongodb" --cmd="create-admin --database=test --username=test-admin"
+$NIX_INFRA cluster action -d $WORK_DIR --target="service001" --app-module="mongodb" --cmd="create-db --database=foo"
+$NIX_INFRA cluster action -d $WORK_DIR --target="service001" --app-module="mongodb" --cmd="create-admin --database=foo --username=foo-admin"
 $NIX_INFRA cluster action -d $WORK_DIR --target="service001" --app-module="mongodb" --cmd="create-admin --database=hello --username=hello-admin"
 
 _setup=`date +%s`

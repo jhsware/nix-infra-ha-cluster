@@ -6,4 +6,5 @@
   };
 
   config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 27017 ];
+  config.networking.firewall.interfaces."flannel-wg".allowedUDPPorts = [];
 }
