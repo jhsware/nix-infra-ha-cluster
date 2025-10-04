@@ -5,9 +5,9 @@
     ./app-mariadb-pod
     ./app-elasticsearch-pod
     ./app-redis-pod
-    ./mongodb
-    ./elasticsearch
-    ./keydb
-    ./mariadb
+    ./mongodb-pod
+    ./elasticsearch-pod
+    ./keydb-pod
+    ./mariadb-pod
   ];
 }
