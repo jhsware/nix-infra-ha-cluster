@@ -215,28 +215,21 @@ if [ "$CMD" = "destroy" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "update" ]; then
+# When you are developing your cluster template
+if [ "$CMD" = "dev-sync" ]; then
   if [ -z "$REST" ]; then
-    echo "Usage: $0 update --env=$ENV [node1 node2 ...]"
+    echo "Usage: $0 dev-sync /path/to/source"
     exit 1
   fi
-  (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
-
-  $NIX_INFRA cluster update-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-    --nixos-version="$NIXOS_VERSION" \
-    --node-module="node_types/cluster_node.nix" \
-    --ctrl-nodes="$CTRL_NODES" \
-    --target="$REST"
+  (cd "$WORK_DIR" && git reset --hard && (cd "$REST" && git diff) |  git apply)
   exit 0
 fi
 
-if [ "$CMD" = "dev-sync" ]; then
+if [ "$CMD" = "update" ]; then
   if [ -z "$REST" ]; then
-    echo "Usage: $0 update --env=$ENV [node1 node2 ...]"
+    echo "Usage: $0 update [node1 node2 ...]"
     exit 1
   fi
-  git diff | (cd /path/to/target-dir && git apply)
-
   $NIX_INFRA cluster update-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
     --nixos-version="$NIXOS_VERSION" \
     --node-module="node_types/cluster_node.nix" \
@@ -250,8 +243,7 @@ if [ "$CMD" = "upgrade" ]; then
     echo "Usage: $0 upgrade --env=$ENV [--nixos-version=$NIXOS_VERSION] [node1 node2 ...]"
     exit 1
   fi
-  (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
-
+  # (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
   $NIX_INFRA cluster upgrade-nixos -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
     --nixos-version="$NIXOS_VERSION" \
     --target="$SERVICE_NODES $OTHER_NODES"
