@@ -47,7 +47,7 @@ $0 action --env=.env-test --target=service001 args to action
 EOF
 )
 
-if [[ "create upgrade run reset teardown pull publish update test test-apps ssh cmd etcd action" == *"$1"* ]]; then
+if [[ "create upgrade run reset destroy pull publish update test test-apps ssh cmd etcd action" == *"$1"* ]]; then
   CMD="$1"
   shift
 else
@@ -61,7 +61,7 @@ for i in "$@"; do
     echo "$__help_text__"
     exit 0
     ;;
-    --no-teardown)
+    --no-teardown) # Don't do a teardown of the test
     NO_TEARDOWN="true"
     shift
     ;;
@@ -186,7 +186,7 @@ publishImageToRegistry() {
       --use-localhost
 }
 
-tearDownCluster() {
+destroyCluster() {
   $NIX_INFRA cluster destroy -d $WORK_DIR --batch \
       --target="$SERVICE_NODES $OTHER_NODES" \
       --ctrl-nodes="$CTRL_NODES"
@@ -205,13 +205,13 @@ tearDownCluster() {
 cleanupOnFail() {
   if [ $1 -ne 0 ]; then
     echo "$2"
-    tearDownCluster
+    destroyCluster
     exit 1
   fi
 }
 
-if [ "$CMD" = "teardown" ]; then
-  tearDownCluster
+if [ "$CMD" = "destroy" ]; then
+  destroyCluster
   exit 0
 fi
 

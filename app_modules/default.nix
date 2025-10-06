@@ -9,5 +9,6 @@
     ./elasticsearch-pod
     ./keydb-pod
     ./mariadb-pod
+    ./mariadb
   ];
 }

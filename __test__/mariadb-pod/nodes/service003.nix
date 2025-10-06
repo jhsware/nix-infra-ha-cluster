@@ -1,5 +1,5 @@
 { config, pkgs, lib, ... }: {
-  config.infrastructure.mariadb-cluster = {
+  config.infrastructure.mariadb-cluster-pod = {
     enable = true;
     clusterName = "my_galera_cluster";
     bindToIp = "[%%localhost.overlayIp%%]";

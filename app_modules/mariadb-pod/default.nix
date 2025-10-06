@@ -46,7 +46,7 @@ let
   '';
 in
 {
-  options.infrastructure.${appName} = {
+  options.infrastructure."${appName}-pod" = {
     enable = lib.mkEnableOption "infrastructure.mariadb-cluster oci";
 
     clusterName = lib.mkOption {
