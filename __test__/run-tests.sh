@@ -47,7 +47,7 @@ $0 action --env=.env-test --target=service001 args to action
 EOF
 )
 
-if [[ "create upgrade run reset destroy pull publish update test test-apps ssh cmd etcd action" == *"$1"* ]]; then
+if [[ "create upgrade run reset destroy pull publish update test test-apps ssh cmd etcd action dev-sync" == *"$1"* ]]; then
   CMD="$1"
   shift
 else
@@ -226,7 +226,22 @@ if [ "$CMD" = "update" ]; then
     --nixos-version="$NIXOS_VERSION" \
     --node-module="node_types/cluster_node.nix" \
     --ctrl-nodes="$CTRL_NODES" \
-    --target="$SERVICE_NODES $OTHER_NODES"
+    --target="$REST"
+  exit 0
+fi
+
+if [ "$CMD" = "dev-sync" ]; then
+  if [ -z "$REST" ]; then
+    echo "Usage: $0 update --env=$ENV [node1 node2 ...]"
+    exit 1
+  fi
+  git diff | (cd /path/to/target-dir && git apply)
+
+  $NIX_INFRA cluster update-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+    --nixos-version="$NIXOS_VERSION" \
+    --node-module="node_types/cluster_node.nix" \
+    --ctrl-nodes="$CTRL_NODES" \
+    --target="$REST"
   exit 0
 fi
 
