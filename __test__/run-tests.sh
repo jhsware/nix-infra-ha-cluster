@@ -2,7 +2,7 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 WORK_DIR=${WORK_DIR:-$(dirname "$SCRIPT_DIR")}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
-NIXOS_VERSION=${NIXOS_VERSION:-"24.11"}
+NIXOS_VERSION=${NIXOS_VERSION:-"25.05"}
 SSH_KEY="nixinfra"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
@@ -61,7 +61,7 @@ for i in "$@"; do
     echo "$__help_text__"
     exit 0
     ;;
-    --no-teardown) # Don't do a teardown of the test
+    --no-teardown)
     NO_TEARDOWN="true"
     shift
     ;;
