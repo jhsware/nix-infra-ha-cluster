@@ -113,7 +113,7 @@ in
           
           # Galera Provider Configuration
           wsrep_on = "ON";
-          wsrep_provider = "${pkgs.mariadb}/lib/galera/libgalera_smm.so";
+          wsrep_provider = "${pkgs.mariadb-galera}/lib/galera/libgalera_smm.so";
           
           # Galera Cluster Configuration
           wsrep_cluster_name = cfg.clusterName;
@@ -166,6 +166,7 @@ in
     environment.systemPackages = with pkgs; [
       socat
       mariadb
+      mariadb-galera
     ];
 
     # Firewall rules for Galera cluster communication
