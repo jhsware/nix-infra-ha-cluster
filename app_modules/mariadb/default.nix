@@ -96,7 +96,7 @@ in
   config = lib.mkIf cfg.enable {
     services.mysql = {
       enable = true;
-      package = pkgs.mariadb-galera;
+      package = pkgs.mariadb;
       
       settings = {
         mysqld = {
