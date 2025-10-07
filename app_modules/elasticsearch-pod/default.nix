@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }:
 let
-  appName = "elasticsearch";
+  appName = "elasticsearch-pod";
   # appUser = "elasticsearch";
   appPort = 9200;
 

@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }:
 let
-  appName = "mongodb-4";
+  appName = "mongodb-4-pod";
   # appUser = "mongodb";
   appPort = 27017;
 

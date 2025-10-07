@@ -1,5 +1,5 @@
 { config, pkgs, lib, ... }: {
-  config.infrastructure.elasticsearch = {
+  config.infrastructure.elasticsearch-pod = {
     enable = true;
     bindToIp = "[%%localhost.overlayIp%%]";
     clusterName = "elasticsearch";

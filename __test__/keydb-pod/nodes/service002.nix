@@ -1,5 +1,5 @@
 { config, pkgs, lib, ... }: {
-  config.infrastructure.keydb-ha = {
+  config.infrastructure.keydb-ha-pod = {
     enable = true;
     bindToIp = "[%%localhost.overlayIp%%]";
     replicaOf = [

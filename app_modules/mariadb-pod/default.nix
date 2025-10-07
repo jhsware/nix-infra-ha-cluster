@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }:
 let
-  appName = "mariadb-cluster";
+  appName = "mariadb-cluster-pod";
   appPort = 3306;
 
   cfg = config.infrastructure.${appName};

@@ -96,7 +96,7 @@ in
   config = lib.mkIf cfg.enable {
     services.mysql = {
       enable = true;
-      package = pkgs.mariadb;
+      package = pkgs.mariadb-galera;
       
       settings = {
         mysqld = {
@@ -156,7 +156,7 @@ in
           ${checkPrimaryScript}
         ''}
       '';
-      
+
       # Restart policy
       restartIfChanged = false;
       reloadIfChanged = true;

@@ -89,7 +89,7 @@ if [ -z "$HCLOUD_TOKEN" ]; then
 fi
 
 if [ "$CMD" = "run" ]; then
-  if [ ! -d $WORK_DIR ]; then
+  if [ ! -d "$WORK_DIR" ]; then
     echo "Working directory doesn't exist ($WORK_DIR)"
     exit 1
   fi
@@ -107,9 +107,9 @@ if [ "$CMD" = "run" ]; then
       TEST_DIR="__test__/$_test_name" source "$WORK_DIR/__test__/$_test_name/test.sh"
 
       if [ "$_test_name" != "$last_test" ] || [ "$NO_TEARDOWN" != "true" ]; then
-        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d $WORK_DIR --target="$CTRL_NODES" &
-        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d $WORK_DIR --target="$CTRL_NODES" &
-        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/frontends" -d $WORK_DIR --target="$CTRL_NODES" &
+        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d "$WORK_DIR" --target="$CTRL_NODES" &
+        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d "$WORK_DIR" --target="$CTRL_NODES" &
+        $NIX_INFRA cluster etcd ctl "del --prefix /cluster/frontends" -d "$WORK_DIR" --target="$CTRL_NODES" &
         wait
 
         TEST_DIR="__test__/$REST" CMD="teardown" source "$WORK_DIR/__test__/$_test_name/test.sh"
@@ -118,16 +118,16 @@ if [ "$CMD" = "run" ]; then
   done
 
   if [ "$NO_TEARDOWN" != "true" ]; then
-    $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" 'rm -f /etc/nixos/$(hostname).nix'
-    $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
-    $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
+    $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" 'rm -f /etc/nixos/$(hostname).nix'
+    $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
+    $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
   fi
   
   exit 0
 fi
 
 if [ "$CMD" = "reset" ]; then
-  if [ ! -d $WORK_DIR ]; then
+  if [ ! -d "$WORK_DIR" ]; then
     echo "Working directory doesn't exist ($WORK_DIR)"
     exit 1
   fi
@@ -138,16 +138,16 @@ if [ "$CMD" = "reset" ]; then
   fi
 
   echo "Cleaning up node configuration..."
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" 'rm -f /etc/nixos/$(hostname).nix'
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" 'rm -f /etc/nixos/$(hostname).nix'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
 
   sleep 1
 
   echo "Cleaning up etcd..."
-  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d $WORK_DIR --target="$CTRL_NODES" &
-  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d $WORK_DIR --target="$CTRL_NODES" &
-  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/frontends" -d $WORK_DIR --target="$CTRL_NODES" &
+  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/services" -d "$WORK_DIR" --target="$CTRL_NODES" &
+  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/backends" -d "$WORK_DIR" --target="$CTRL_NODES" &
+  $NIX_INFRA cluster etcd ctl "del --prefix /cluster/frontends" -d "$WORK_DIR" --target="$CTRL_NODES" &
   wait
 
   echo "Tearing down the test..."
@@ -178,7 +178,7 @@ publishImageToRegistry() {
     local IMAGE_NAME=$1
     local FILE=$2
     local IMAGE_TAG=$3
-    $NIX_INFRA registry publish-image -d $WORK_DIR --batch \
+    $NIX_INFRA registry publish-image -d "$WORK_DIR" --batch \
       --target="worker001" \
       --image-name="$IMAGE_NAME" \
       --image-tag="$IMAGE_TAG" \
@@ -187,15 +187,15 @@ publishImageToRegistry() {
 }
 
 destroyCluster() {
-  $NIX_INFRA cluster destroy -d $WORK_DIR --batch \
+  $NIX_INFRA cluster destroy -d "$WORK_DIR" --batch \
       --target="$SERVICE_NODES $OTHER_NODES" \
       --ctrl-nodes="$CTRL_NODES"
 
-  $NIX_INFRA cluster destroy -d $WORK_DIR --batch \
+  $NIX_INFRA cluster destroy -d "$WORK_DIR" --batch \
       --target="$CTRL_NODES" \
       --ctrl-nodes="$CTRL_NODES"
 
-  $NIX_INFRA ssh-key remove -d $WORK_DIR --batch --name="$SSH_KEY"
+  $NIX_INFRA ssh-key remove -d "$WORK_DIR" --batch --name="$SSH_KEY"
 
   echo "Remove /ca and /ssh..."
   rm -rf "$WORK_DIR/ca"
@@ -225,12 +225,21 @@ if [ "$CMD" = "dev-sync" ]; then
   exit 0
 fi
 
+if [ "$CMD" = "action" ]; then
+  if [ -z "$TARGET" ] || [ -z "$REST" ]; then
+    echo "Usage: $0 action --target=[node] [cmd]"
+    exit 1
+  fi
+
+  exit 0
+fi
+
 if [ "$CMD" = "update" ]; then
   if [ -z "$REST" ]; then
     echo "Usage: $0 update [node1 node2 ...]"
     exit 1
   fi
-  $NIX_INFRA cluster update-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA cluster update-node -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
     --nixos-version="$NIXOS_VERSION" \
     --node-module="node_types/cluster_node.nix" \
     --ctrl-nodes="$CTRL_NODES" \
@@ -240,11 +249,11 @@ fi
 
 if [ "$CMD" = "upgrade" ]; then
   if [ -z "$REST" ]; then
-    echo "Usage: $0 upgrade --env=$ENV [--nixos-version=$NIXOS_VERSION] [node1 node2 ...]"
+    echo "Usage: $0 upgrade --env=$ENV [--nixos-version="$NIXOS_VERSION"] [node1 node2 ...]"
     exit 1
   fi
   # (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
-  $NIX_INFRA cluster upgrade-nixos -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA cluster upgrade-nixos -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
     --nixos-version="$NIXOS_VERSION" \
     --target="$SERVICE_NODES $OTHER_NODES"
   exit 0
@@ -289,19 +298,19 @@ INTERMEDIATE_CA_PASS=$(echo $INTERMEDIATE_CA_PASS)
 SECRETS_PWD=$(echo $SECRETS_PWD)
 EOF
 )
-    echo "$env" > $WORK_DIR/.env
+    echo "$env" > "$WORK_DIR"/.env
   fi
 
-  _start=`date +%s`
+  _start=$(date +%s)
 
-  $NIX_INFRA init -d $WORK_DIR --batch
+  $NIX_INFRA init -d "$WORK_DIR" --batch
   # We need to add the ssh-key for it to work for some reason
-  ssh-add $WORK_DIR/ssh/$SSH_KEY
+  ssh-add "$WORK_DIR"/ssh/$SSH_KEY
   
   # Provision the test cluster
   echo "*** Provisioning NixOS $NIXOS_VERSION ***"
 
-  $NIX_INFRA cluster provision -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA cluster provision -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
       --nixos-version="$NIXOS_VERSION" \
       --ssh-key=$SSH_KEY \
       --location=hel1 \
@@ -310,23 +319,23 @@ EOF
 
   cleanupOnFail $? "ERROR: Provisioning failed! Cleaning up..."
 
-  _provision=`date +%s`
+  _provision=$(date +%s)
 
-  $NIX_INFRA cluster init-ctrl -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA cluster init-ctrl -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
       --nixos-version="$NIXOS_VERSION" \
       --cluster-uuid="d6b76143-bcfa-490a-8f38-91d79be62fab" \
       --target="$CTRL_NODES"
 
   sleep 3 # allow etcd to start
 
-  $NIX_INFRA cluster init-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA cluster init-node -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
       --nixos-version="$NIXOS_VERSION" \
       --target="$SERVICE_NODES" \
       --node-module="node_types/cluster_node.nix" \
       --service-group="services" \
       --ctrl-nodes="$CTRL_NODES"
 
-  $NIX_INFRA cluster init-node -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA cluster init-node -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
       --nixos-version="$NIXOS_VERSION" \
       --target="$OTHER_NODES" \
       --node-module="node_types/cluster_node.nix" \
@@ -335,17 +344,17 @@ EOF
 
   sleep 2 # allow cluster to settle
 
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
-  $NIX_INFRA cluster cmd -d $WORK_DIR --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
 
-  _init_nodes=`date +%s`
+  _init_nodes=$(date +%s)
 
   # Verify the operation of the test cluster
   echo "******************************************"
   testCluster
   echo "******************************************"
 
-  _end=`date +%s`
+  _end=$(date +%s)
 
   echo "            **              **            "
   echo "            **              **            "
@@ -353,9 +362,9 @@ EOF
 
   printTime() {
     local _start=$1; local _end=$2; local _secs=$((_end-_start))
-    printf '%02dh:%02dm:%02ds' $(($_secs/3600)) $(($_secs%3600/60)) $(($_secs%60))
+    printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
   }
-  printf '+ provision  %s\n' $(printTime $_start $_provision)
+  printf '+ provision  %s\n' "$(printTime $_start $_provision)"
   printf '+ init       %s\n' $(printTime $_provision $_init_nodes)
   printf '+ test       %s\n' $(printTime $_init_nodes $_end)
   printf '= SUM %s\n' $(printTime $_start $_end)

@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }:
 let
-  appName = "keydb-ha";
+  appName = "keydb-ha-pod";
   # appUser = "keydb";
   appPort = 6380;
 
