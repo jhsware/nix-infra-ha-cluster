@@ -17,6 +17,6 @@
     # TODO: Update test script and create a docker image
     enable = true;
     bindToIp = "[%%localhost.overlayIp%%]";
-    mariadbConnectionStringSecretName = "[%%secrets/mariadb.connectionString%%]";
+    mariadbConnectionStringSecretName = "[%%secrets/mariadb.test-admin.connectionString%%]";
   };
 }

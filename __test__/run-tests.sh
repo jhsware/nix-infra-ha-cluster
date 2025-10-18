@@ -159,12 +159,15 @@ if [ "$CMD" = "reset" ]; then
     fi
   done
 
+  echo "Removing secrets"
+  rm -f "$WORK_DIR/secrets/*"
+
   echo "...reset complete!"
   exit 0
 fi
 
-
-source $SCRIPT_DIR/shared.sh
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/shared.sh"
 
 testCluster() {
   checkNixos "$CTRL_NODES $SERVICE_NODES $OTHER_NODES"
@@ -197,9 +200,8 @@ destroyCluster() {
 
   $NIX_INFRA ssh-key remove -d "$WORK_DIR" --batch --name="$SSH_KEY"
 
-  echo "Remove /ca and /ssh..."
-  rm -rf "$WORK_DIR/ca"
-  rm -rf "$WORK_DIR/ssh"
+  echo "Remove /ca /ssh /secrets..."
+  rm -rf "$WORK_DIR/ca" "$WORK_DIR/ssh" "$WORK_DIR/secrets"
 }
 
 cleanupOnFail() {
@@ -244,6 +246,9 @@ if [ "$CMD" = "update" ]; then
     --node-module="node_types/cluster_node.nix" \
     --ctrl-nodes="$CTRL_NODES" \
     --target="$REST"
+  
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" "nixos-rebuild switch --fast"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES $OTHER_NODES" "systemctl restart confd"
   exit 0
 fi
 

@@ -2,6 +2,7 @@
   config.infrastructure.mariadb-cluster = {
     enable = true;
     clusterName = "my_galera_cluster";
+    nodeName = "[%%localhost.hostname%%]";
     bindToIp = "[%%localhost.overlayIp%%]";
     nodeAddresses = [
       "[%%service001.overlayIp%%]"

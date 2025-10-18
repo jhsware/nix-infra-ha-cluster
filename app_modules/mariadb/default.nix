@@ -8,7 +8,6 @@ let
 
   primaryAddress = builtins.elemAt cfg.nodeAddresses 0;
   isPrimaryNode = cfg.bindToIp == (builtins.elemAt cfg.nodeAddresses 0);
-  # Extract just the host part if the address includes a port
   primaryHost = builtins.head (builtins.split ":" primaryAddress);
 
   dataDir = "/var/lib/mysql";
@@ -20,7 +19,7 @@ let
   checkPrimaryScript = pkgs.writeShellScript "check-primary" ''
     echo "Wait for 15 sec before probing primary"
     sleep 15
-    RETRIES=36 # 5 x 36 = 3 mins
+    RETRIES=60
     while [ $RETRIES -gt 0 ]; do
       if ${queryPrimaryCmd} -e "SHOW STATUS LIKE 'wsrep_cluster_status'" 2>/dev/null | grep -q "Primary"; then
         echo "MariaDB cluster primary node detected and available (wsrep_cluster_status = Primary)"
@@ -42,6 +41,11 @@ in
 {
   options.infrastructure.${appName} = {
     enable = lib.mkEnableOption "infrastructure.mariadb-cluster";
+
+    nodeName = lib.mkOption {
+      type = lib.types.str;
+      description = "Name of the Galera cluster node.";
+    };
 
     clusterName = lib.mkOption {
       type = lib.types.str;
@@ -96,87 +100,18 @@ in
   config = lib.mkIf cfg.enable {
     services.mysql = {
       enable = true;
-      package = pkgs.mariadb;
-      
-      settings = {
-        mysqld = {
-          # Basic configuration
-          port = cfg.bindToPort;
-          bind-address = cfg.bindToIp;
-          datadir = dataDir;
-          
-          # InnoDB settings for Galera
-          binlog_format = "ROW";
-          default-storage-engine = "innodb";
-          innodb_autoinc_lock_mode = 2;
-          innodb_flush_log_at_trx_commit = 0;
-          
-          # Galera Provider Configuration
-          wsrep_on = "ON";
-          wsrep_provider = "${pkgs.mariadb-galera}/lib/galera/libgalera_smm.so";
-          
-          # Galera Cluster Configuration
-          wsrep_cluster_name = cfg.clusterName;
-          wsrep_cluster_address = "gcomm://${builtins.concatStringsSep "," cfg.nodeAddresses}";
-          
-          # Galera Synchronization Configuration
-          wsrep_sst_method = "mariabackup";
-          wsrep_sst_auth = "root:${cfg.rootPassword}";
-          
-          # Galera Node Configuration
-          wsrep_node_address = cfg.bindToIp;
-          wsrep_node_name = "${appName}-${cfg.bindToIp}";
-          
-          # Performance settings
-          wsrep_slave_threads = 4;
-        };
+      package = pkgs.mariadb;  # Regular mariadb package includes Galera
+
+      galeraCluster = {
+        enable = true;
+        package = pkgs.mariadb-galera;
+        sstMethod = "mariabackup";
+        nodeAddresses = cfg.nodeAddresses;
+        name = cfg.clusterName;
+        localName = cfg.nodeName;
+        localAddress = cfg.bindToIp;
+        #clusterPassword = "";
       };
-
-      initialScript = pkgs.writeText "mysql-init.sql" ''
-        -- Ensure root password is set
-        ALTER USER 'root'@'localhost' IDENTIFIED BY '${cfg.rootPassword}';
-        -- Allow root from any host (for cluster management)
-        CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '${cfg.rootPassword}';
-        GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
-        FLUSH PRIVILEGES;
-      '';
-    };
-
-    # systemd service customization for Galera
-    systemd.services.mysql = {
-      # Pre-start script to clean up stale SST files
-      preStart = lib.mkBefore ''
-        # Clean up stale SST files if they exist
-        rm -f ${dataDir}/rsync_sst* ${dataDir}/sst_in_progress ${dataDir}/wsrep_sst.pid
-        # Kill any stale SST processes
-        ${pkgs.procps}/bin/pkill -f wsrep_sst || true
-        
-        ${lib.optionalString (!isPrimaryNode) ''
-          # Wait for primary node to be ready (only on secondary nodes)
-          ${checkPrimaryScript}
-        ''}
-      '';
-
-      # Restart policy
-      restartIfChanged = false;
-      reloadIfChanged = true;
-    };
-
-    # Required packages for Galera mariabackup SST
-    environment.systemPackages = with pkgs; [
-      socat
-      mariadb
-      mariadb-galera
-    ];
-
-    # Firewall rules for Galera cluster communication
-    networking.firewall = lib.mkIf config.networking.firewall.enable {
-      allowedTCPPorts = [
-        cfg.bindToPort      # MySQL
-        cfg.galeraPort      # Galera replication
-        cfg.ist             # Incremental State Transfer
-        cfg.sst             # State Snapshot Transfer
-      ];
     };
   };
 }

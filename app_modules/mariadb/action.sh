@@ -42,7 +42,7 @@ execute_mariadb_query() {
   local query="$1"
   local database="${2:-mysql}"
   
-  mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "$database" -e "$query"
+  mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -D "$database" -e "$query"
   return $?
 }
 
@@ -75,7 +75,7 @@ if [ "$CMD" = "dbs" ]; then
     echo "============="
     
     # Get list of databases with size information
-    mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
+    mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
       SELECT 
         table_schema AS 'Database', 
         ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS 'Size (MB)'
@@ -85,7 +85,7 @@ if [ "$CMD" = "dbs" ]; then
     "
     
     # Get total size and count
-    mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
+    mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
       SELECT 
         CONCAT('Total size: ', ROUND(SUM(data_length + index_length) / 1024 / 1024, 2), ' MB') AS '',
         CONCAT('Total number of databases: ', COUNT(DISTINCT table_schema)) AS ''
@@ -106,17 +106,17 @@ if [ "$CMD" = "create-db" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 20)
 
   # Create database and user in MariaDB
-  DB_CREATE_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
-    CREATE DATABASE IF NOT EXISTS \\\`$DATABASE\\\`;
+  DB_CREATE_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
+    CREATE DATABASE IF NOT EXISTS \`$DATABASE\`;
     CREATE USER '$USERNAME'@'%' IDENTIFIED BY '$PASSWORD';
-    GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, INDEX, DROP, ALTER, CREATE TEMPORARY TABLES, LOCK TABLES ON \\\`$DATABASE\\\`.* TO '$USERNAME'@'%';
+    GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, INDEX, DROP, ALTER, CREATE TEMPORARY TABLES, LOCK TABLES ON \`$DATABASE\`.* TO '$USERNAME'@'%';
     FLUSH PRIVILEGES;
   " 2>&1)
   
   # Check the result of the MariaDB command
   RESULT=$?
   if [ $RESULT -eq 0 ]; then
-    echo mysql://"$USERNAME":"$PASSWORD"@[%%$(hostname)%%]:3306/$DATABASE
+    echo "mysql://$USERNAME:$PASSWORD@[%%service001.overlayIp%%]:3306,[%%service002.overlayIp%%]:3306,[%%service003.overlayIp%%]:3306/$DATABASE?&connectTimeout=10000&connectionLimit=10&multipleStatements=true"
   else
     echo "Failed to create database/user (Error code: $RESULT)"
     echo "$DB_CREATE_RESULT"
@@ -134,17 +134,17 @@ if [ "$CMD" = "create-admin" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 20)
 
   # Create admin user in MariaDB
-  ADMIN_CREATE_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
-    CREATE DATABASE IF NOT EXISTS \\\`$DATABASE\\\`;
+  ADMIN_CREATE_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
+    CREATE DATABASE IF NOT EXISTS \`$DATABASE\`;
     CREATE USER '$USERNAME'@'%' IDENTIFIED BY '$PASSWORD';
-    GRANT ALL PRIVILEGES ON \\\`$DATABASE\\\`.* TO '$USERNAME'@'%';
+    GRANT ALL PRIVILEGES ON \`$DATABASE\`.* TO '$USERNAME'@'%';
     FLUSH PRIVILEGES;
   " 2>&1)
   
   # Check the result of the MariaDB command
   RESULT=$?
   if [ $RESULT -eq 0 ]; then
-    echo mysql://"$USERNAME":"$PASSWORD"@[%%$(hostname)%%]:3306/$DATABASE
+    echo "mysql://$USERNAME:$PASSWORD@[%%service001.overlayIp%%]:3306,[%%service002.overlayIp%%]:3306,[%%service003.overlayIp%%]:3306/$DATABASE?&connectTimeout=10000&connectionLimit=10&multipleStatements=true"
   else
     echo "Failed to create admin user (Error code: $RESULT)"
     echo "$ADMIN_CREATE_RESULT"
@@ -162,26 +162,15 @@ if [ "$CMD" = "change-password" ]; then
   NEW_PASSWORD=$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 20)
   
   # Change password in MariaDB
-  CHANGE_PW_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
-    /* First check if the user exists */
-    SELECT COUNT(*) INTO @user_exists FROM mysql.user WHERE user = '$USERNAME';
-    
-    /* If the user doesn't exist, this will produce an error */
-    SET @query = IF(@user_exists > 0, 
-      'ALTER USER \\'$USERNAME\\'@\\'%\\' IDENTIFIED BY \\'$NEW_PASSWORD\\';', 
-      'SELECT \\'Error: User does not exist\\' AS error_message');
-    
-    PREPARE stmt FROM @query;
-    EXECUTE stmt;
-    DEALLOCATE PREPARE stmt;
-    
+  CHANGE_PW_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
+    ALTER USER '$USERNAME'@'%' IDENTIFIED BY '$NEW_PASSWORD';
     FLUSH PRIVILEGES;
   " 2>&1)
   
   RESULT=$?
   if [ $RESULT -eq 0 ] && [[ ! "$CHANGE_PW_RESULT" == *"Error: User does not exist"* ]]; then
     if [ -n "$DATABASE" ]; then
-      echo mysql://"$USERNAME":"$NEW_PASSWORD"@[%%$(hostname)%%]:3306/"$DATABASE"
+      echo mysql://"$USERNAME":"$NEW_PASSWORD"@[%%"$(hostname)"%%]:3306/"$DATABASE"
     else
       echo "Password for user '$USERNAME' changed successfully"
       echo "New password: $NEW_PASSWORD"
@@ -199,7 +188,7 @@ if [ "$CMD" = "users" ]; then
   
   if [ -z "$DATABASE" ]; then
     # List all users with their privileges
-    mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
+    mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
       SELECT 
         user.User AS 'Username', 
         user.Host AS 'Host',
@@ -217,7 +206,7 @@ if [ "$CMD" = "users" ]; then
     "
   else
     # List users with privileges on specific database
-    mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
+    mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
       SELECT 
         user.User AS 'Username', 
         user.Host AS 'Host',
@@ -237,13 +226,13 @@ if [ "$CMD" = "users" ]; then
         ) AS 'Privileges'
       FROM mysql.user user
       JOIN mysql.db db ON user.User = db.User
-      WHERE db.Db = '$DATABASE'
+      WHERE db.Db = \'$DATABASE\'
       ORDER BY user.User;
       
       SELECT 
         CONCAT('Total users with access to $DATABASE: ', COUNT(*)) AS ''
       FROM mysql.db
-      WHERE Db = '$DATABASE';
+      WHERE Db = \'$DATABASE\';
     "
   fi
 
@@ -272,12 +261,12 @@ if [ "$CMD" = "delete-user" ]; then
   fi
 
   # Get user privileges before deletion for confirmation message
-  PRIVILEGES=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
+  PRIVILEGES=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
     SELECT Db FROM mysql.db WHERE User = '$USERNAME';
   " 2>/dev/null)
 
   # Delete user in MariaDB
-  DELETE_USER_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" "
+  DELETE_USER_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
     DROP USER IF EXISTS '$USERNAME'@'%';
     FLUSH PRIVILEGES;
   " 2>&1)
