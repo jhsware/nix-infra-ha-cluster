@@ -170,7 +170,7 @@ if [ "$CMD" = "change-password" ]; then
   RESULT=$?
   if [ $RESULT -eq 0 ] && [[ ! "$CHANGE_PW_RESULT" == *"Error: User does not exist"* ]]; then
     if [ -n "$DATABASE" ]; then
-      echo mysql://"$USERNAME":"$NEW_PASSWORD"@[%%"$(hostname)"%%]:3306/"$DATABASE"
+      echo "mysql://$USERNAME:$NEW_PASSWORD@[%%service001.overlayIp%%]:3306,[%%service002.overlayIp%%]:3306,[%%service003.overlayIp%%]:3306/$DATABASE?&connectTimeout=10000&connectionLimit=10&multipleStatements=true"
     else
       echo "Password for user '$USERNAME' changed successfully"
       echo "New password: $NEW_PASSWORD"
