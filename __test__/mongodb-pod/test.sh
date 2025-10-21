@@ -36,7 +36,7 @@ if [ "$CMD" = "publish" ]; then
 fi
 
 if [ "$CMD" = "teardown" ]; then
-  _cmd_='if ! systemctl cat podman-mongodb-4.service &>/dev/null; then rm -rf "/var/lib/mongodb-4"; fi'
+  _cmd_='if ! systemctl cat podman-mongodb-4-pod.service &>/dev/null; then rm -rf "/var/lib/mongodb-4"; fi'
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" "$_cmd_"
   return 0
 fi

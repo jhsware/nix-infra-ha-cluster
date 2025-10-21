@@ -11,7 +11,7 @@
 
   config.infrastructure.podman.dockerRegistryHostPort = "[%%registry001.overlayIp%%]:5000";
 
-  config.infrastructure.mongodb-4 = {
+  config.infrastructure.mongodb-4-pod = {
     enable = true;
     replicaSetName = "rs0";
     bindToIp = "[%%localhost.overlayIp%%]";

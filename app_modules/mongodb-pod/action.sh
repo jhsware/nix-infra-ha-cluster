@@ -35,19 +35,19 @@ done
 
 if [ "$CMD" = "init" ]; then
   echo "Initializing MongoDB replica set"
-  podman exec mongodb-4 mongo --port 27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"$NODE_1\", priority: 100},{_id: 1, host: \"$NODE_2\"},{_id: 2, host: \"$NODE_3\"}]})"
+  podman exec mongodb-4-pod mongo --port 27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"$NODE_1\", priority: 100},{_id: 1, host: \"$NODE_2\"},{_id: 2, host: \"$NODE_3\"}]})"
   echo "Result Code: $?"
 fi
 
 if [ "$CMD" = "status" ]; then
-  podman exec mongodb-4 mongo --quiet --port 27017 --eval 'rs.status()'
+  podman exec mongodb-4-pod mongo --quiet --port 27017 --eval 'rs.status()'
   echo "Result Code: $?"
 fi
 
 if [ "$CMD" = "dbs" ]; then
   echo "dbs..."
   if [ -z "$VERBOSE" ]; then
-    podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+    podman exec mongodb-4-pod mongo --quiet --port 27017 --eval "$(cat <<EOF
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       result.databases.forEach(function(db) {
@@ -56,7 +56,7 @@ if [ "$CMD" = "dbs" ]; then
 EOF
     )"
   else
-    podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+    podman exec mongodb-4-pod mongo --quiet --port 27017 --eval "$(cat <<EOF
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       print('\nDatabase List:');
@@ -74,7 +74,7 @@ fi
 
 # The action command is currently not interactive
 # if [ "$CMD" = "shell" ]; then
-#   podman exec --interactive mongodb-4 mongo --port 27017 --shell
+#   podman exec --interactive mongodb-4-pod mongo --port 27017 --shell
 # fi
 
 if [ "$CMD" = "create-db" ]; then
@@ -91,7 +91,7 @@ if [ "$CMD" = "create-db" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
-  podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+  podman exec mongodb-4-pod mongo --quiet --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
 
     let dbExists;
@@ -156,7 +156,7 @@ if [ "$CMD" = "create-admin" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
-  podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+  podman exec mongodb-4-pod mongo --quiet --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
 
     db.createRole({
@@ -199,7 +199,7 @@ if [ "$CMD" = "change-password" ]; then
   # Generate random password if not provided
   NEW_PASSWORD=$(head -c 24 /dev/urandom | base64)
   
-  podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+  podman exec mongodb-4-pod mongo --quiet --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
     
     // Check if user exists
@@ -225,7 +225,7 @@ fi
 
 if [ "$CMD" = "users" ]; then
   if [ -z "$DATABASE" ]; then
-    podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+    podman exec mongodb-4-pod mongo --quiet --port 27017 --eval "$(cat <<EOF
       let adminDb = db.getSiblingDB('admin');
       let cursor = adminDb.system.users.find();
       let userCount = 0;
@@ -255,7 +255,7 @@ if [ "$CMD" = "users" ]; then
 EOF
 )"
   else
-    podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+    podman exec mongodb-4-pod mongo --quiet --port 27017 --eval "$(cat <<EOF
       let adminDb = db.getSiblingDB('admin');
       let cursor = adminDb.system.users.find({ 'db': '$DATABASE' });
       let userCount = 0;
@@ -311,7 +311,7 @@ if [ "$CMD" = "delete-user" ]; then
     fi
   fi
 
-  podman exec mongodb-4 mongo --quiet --port 27017 --eval "$(cat <<EOF
+  podman exec mongodb-4-pod mongo --quiet --port 27017 --eval "$(cat <<EOF
     const adminDb = db.getSiblingDB('admin');
       
     // First check if user exists and get their roles
