@@ -17,6 +17,25 @@
     bindToIp = "[%%localhost.overlayIp%%]";
   };
 
-  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 27017 ];
-  config.networking.firewall.interfaces."flannel-wg".allowedUDPPorts = [];
+  config.infrastructure.mariadb-cluster = {
+    enable = true;
+    clusterName = "my_galera_cluster";
+    nodeName = "[%%localhost.hostname%%]";
+    bindToIp = "[%%localhost.overlayIp%%]";
+    nodeAddresses = [
+      "[%%service001.overlayIp%%]"
+      "[%%service002.overlayIp%%]"
+      "[%%service003.overlayIp%%]"
+    ];
+    rootPassword = "your-secure-password";
+  };
+
+
+  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [
+    27017 # Mongodb
+    3306 4567 4568 4444 # Mariadb
+  ];
+  config.networking.firewall.interfaces."flannel-wg".allowedUDPPorts = [
+    4567 # Mariadb
+  ];
 }
