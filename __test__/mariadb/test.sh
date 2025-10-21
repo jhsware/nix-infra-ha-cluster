@@ -53,13 +53,6 @@ fi
 
 _start=$(date +%s)
 
-# Update nodes to at least 25.05 for galera support
-if [ "$NIXOS_VERSION" = "24.11" ]; then
-  $NIX_INFRA cluster upgrade-nixos -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
-      --nixos-version="25.05" \
-      --target="$SERVICE_NODES"
-fi
-
 echo "RUNNING TEST..."
 $NIX_INFRA secrets store -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
   --secret="mysql://test-admin:your-secure-password@[%%service001.overlayIp%%]:3306,[%%service002.overlayIp%%]:3306,[%%service003.overlayIp%%]:3306/db?&connectTimeout=10000&connectionLimit=10&multipleStatements=true" \
@@ -81,15 +74,12 @@ echo "...apps deployed"
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "nixos-rebuild switch --fast; systemctl stop mysql; systemctl restart confd"
 
 echo "Bootstrap cluster..."
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "galera_new_cluster"
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "systemctl start mysql"
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "systemctl status mysql"
+$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "galera_new_cluster; systemctl start mysql; systemctl status mysql"
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"SHOW STATUS LIKE 'wsrep_cluster_size';\""
+# Creating the user on the first node
 $NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mariadb" --cmd="create-sst-user --username=check_repl --password=check_pass" --env-vars="MARIADB_ROOT_PASSWORD=your-secure-password"
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"SHOW STATUS LIKE 'wsrep_cluster_size';\""
 
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service002" "nixos-rebuild switch --fast; systemctl stop mysql; systemctl restart confd"
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service002" "systemctl start mysql"
+$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service002" "nixos-rebuild switch --fast; systemctl stop mysql; systemctl restart confd; systemctl start mysql"
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service002" "mysql -e \"
 GRANT RELOAD, PROCESS, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'check_repl'@'localhost';
 FLUSH PRIVILEGES;
@@ -97,8 +87,7 @@ FLUSH PRIVILEGES;
 
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service002" "mysql -e \"SHOW STATUS LIKE 'wsrep_cluster_size';\""
 
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service003" "nixos-rebuild switch --fast; systemctl stop mysql; systemctl restart confd"
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service003" "systemctl start mysql"
+$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service003" "nixos-rebuild switch --fast; systemctl stop mysql; systemctl restart confd; systemctl start mysql"
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service003" "mysql -e \"
 GRANT RELOAD, PROCESS, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'check_repl'@'localhost';
 FLUSH PRIVILEGES;
