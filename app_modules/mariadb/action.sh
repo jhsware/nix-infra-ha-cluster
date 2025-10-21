@@ -2,10 +2,10 @@
 
 _mute=/dev/null
 
-if [[ "init status dbs create-db create-admin delete-user users change-password" == *"$1"* ]]; then
+if [[ "init status dbs create-db create-admin create-sst-user delete-user users change-password" == *"$1"* ]]; then
   CMD="$1"
 else
-  echo "Usage: $0 [init|status|dbs|create-db|create-admin|delete-user|users|change-password] [options]"
+  echo "Usage: $0 [init|status|dbs|create-db|create-admin|create-sst-user|delete-user|users|change-password] [options]"
   exit 0
 fi
 
@@ -17,6 +17,10 @@ for i in "$@"; do
     ;;
     --username=*)
     USERNAME="${i#*=}"
+    shift
+    ;;
+    --password=*)
+    PASSWORD="${i#*=}"
     shift
     ;;
     --verbose)
@@ -148,6 +152,30 @@ if [ "$CMD" = "create-admin" ]; then
   else
     echo "Failed to create admin user (Error code: $RESULT)"
     echo "$ADMIN_CREATE_RESULT"
+    exit 1
+  fi
+fi
+
+if [ "$CMD" = "create-sst-user" ]; then
+  # Check if required parameters are provided
+  if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+    echo "Usage: $0 create-sst-user --username=<name> --password=<password> [--is-primary]"
+    exit 1
+  fi
+
+  USER_CREATE_RESULT=$(mariadb -u$MARIADB_ROOT_USER -p"$MARIADB_ROOT_PASSWORD" -e "
+    CREATE USER '$USERNAME'@'localhost' IDENTIFIED BY '$PASSWORD';
+    GRANT RELOAD, PROCESS, LOCK TABLES, REPLICATION CLIENT ON *.* TO '$USERNAME'@'localhost';
+    FLUSH PRIVILEGES;
+  " 2>&1)
+  
+  # Check the result of the MariaDB command
+  RESULT=$?
+  if [ $RESULT -eq 0 ]; then
+    echo "User $USERNAME for SST created successfully"
+  else
+    echo "Failed to create SST user (Error code: $RESULT)"
+    echo "$USER_CREATE_RESULT"
     exit 1
   fi
 fi

@@ -36,8 +36,17 @@ if [ "$CMD" = "publish" ]; then
 fi
 
 if [ "$CMD" = "teardown" ]; then
-  _cmd_='if ! systemctl cat podman-mariadb-cluster.service &>/dev/null; then rm -rf "/var/lib/mariadb-cluster" "/var/lib/mysql"; fi'
+  # Remove Mariadb data files
+  _cmd_='if ! systemctl cat podman-mariadb-cluster.service &>/dev/null; then rm -rf /etc/my.cnf /var/lib/mysql /var/run/mysqld; fi'
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" "$_cmd_"
+  
+  # Remove OCI images
+  _cmd_='podman stop $(docker ps -aq) && docker rm $(docker ps -aq) && docker rmi -f $(docker images -aq)'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
+
+  # Remove Systemd credentials
+  _cmd_="rm -rf /run/credentials/* 2>/dev/null || true; rm -rf /run/systemd/credentials/* 2>/dev/null || true"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
   return 0
 fi
 
@@ -76,11 +85,12 @@ $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "galera_new_cluster"
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "systemctl start mysql"
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "systemctl status mysql"
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"SHOW STATUS LIKE 'wsrep_cluster_size';\""
-$NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"
-CREATE USER 'check_repl'@'localhost' IDENTIFIED BY 'check_pass';
-GRANT RELOAD, PROCESS, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'check_repl'@'localhost';
-FLUSH PRIVILEGES;
-\""
+$NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mariadb" --cmd="create-sst-user --username=check_repl --password=check_pass" --env-vars="MARIADB_ROOT_PASSWORD=your-secure-password"
+# $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"
+# CREATE USER 'check_repl'@'localhost' IDENTIFIED BY 'check_pass';
+# GRANT RELOAD, PROCESS, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'check_repl'@'localhost';
+# FLUSH PRIVILEGES;
+# \""
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"SHOW STATUS LIKE 'wsrep_cluster_size';\""
 
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service002" "nixos-rebuild switch --fast; systemctl stop mysql; systemctl restart confd"
