@@ -86,11 +86,6 @@ $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "systemctl start mys
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "systemctl status mysql"
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"SHOW STATUS LIKE 'wsrep_cluster_size';\""
 $NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mariadb" --cmd="create-sst-user --username=check_repl --password=check_pass" --env-vars="MARIADB_ROOT_PASSWORD=your-secure-password"
-# $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"
-# CREATE USER 'check_repl'@'localhost' IDENTIFIED BY 'check_pass';
-# GRANT RELOAD, PROCESS, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'check_repl'@'localhost';
-# FLUSH PRIVILEGES;
-# \""
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service001" "mysql -e \"SHOW STATUS LIKE 'wsrep_cluster_size';\""
 
 $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="service002" "nixos-rebuild switch --fast; systemctl stop mysql; systemctl restart confd"
