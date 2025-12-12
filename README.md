@@ -1,45 +1,118 @@
 # nix-infra-ha-cluster
-This is a high availability cluster setup for testing nix-infra. It is intended to allow you to try out nix-infra with minimal configuration. All you need is a Hetzner account and some super basic configuration.
 
-1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and install it
+A high availability cluster template for [nix-infra](https://github.com/jhsware/nix-infra). This template allows you to deploy a fault-tolerant cluster with minimal configuration. All you need is a Hetzner Cloud account.
 
-2. Run [this script](https://github.com/jhsware/nix-infra-ha-cluster/blob/main/scripts/get-test.sh) in the terminal to download test scripts:
+## Prerequisites
+
+- [nix-infra CLI](https://github.com/jhsware/nix-infra/releases) installed
+- A Hetzner Cloud account with an API token
+- Git installed
+
+## Quick Start
+
+1. Run this script to clone the template:
 
 ```sh
 sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-ha-cluster/refs/heads/main/scripts/get-test.sh)
 ```
-3. Get an API-key for an empty Hetzner Cloud project
 
-4. Edit the .env in the created folder
+2. Get an API token from your Hetzner Cloud project
 
-5. Run the test script
+3. Edit the `.env` file in the created folder with your token and settings
+
+4. Explore available commands:
 
 ```sh
-nix-infra-ha-cluster/test-nix-infra-ha-base.sh --env=nix-infra-ha-cluster/.env
+cd test-nix-infra-ha-cluster
+
+# Infrastructure management (create, destroy, ssh, etc.)
+./cli --help
+
+# Run test suite against cluster
+./__test__/run-tests.sh --help
 ```
 
-Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own experimental cluster.
+## CLI Commands
 
-## Test Script Options
-
-To build without immediately tearing down the cluster:
+The `cli` script is your main interface for managing infrastructure:
 
 ```sh
-test-nix-infra-ha-base.sh --no-teardown --env=nix-infra-ha-cluster/.env
+# Create cluster nodes
+./cli create etcd001 service001 service002
+
+# SSH into a node
+./cli ssh service001
+
+# Run commands on nodes
+./cli cmd --target="service001 service002" "systemctl status"
+
+# Query etcd database
+./cli etcd --ctrl-nodes=etcd001 get --prefix /nodes
+
+# Update node configuration
+./cli update service001
+
+# Run app module actions
+./cli action --target=service001 mariadb status
+
+# Destroy cluster
+./cli destroy --target="service001 service002" --ctrl-nodes="etcd001"
 ```
 
-Useful commands to explore the running test cluster (check the bash script for more):
+## Running Tests
+
+The test workflow has two stages:
+
+### 1. Create the test cluster infrastructure
+
+The `create` command provisions the base cluster (control nodes, service nodes, worker nodes) and verifies basic functionality:
 
 ```sh
-test-nix-infra-ha-base.sh etcd "/cluster" --env=nix-infra-ha-cluster/.env
-test-nix-infra-ha-base.sh cmd --target=ingress001 "uptime" --env=nix-infra-ha-cluster/.env
-test-nix-infra-ha-base.sh ssh ingress001 --env=nix-infra-ha-cluster/.env
+# Provision cluster and run basic health checks (tears down automatically)
+./__test__/run-tests.sh create
+
+# Keep cluster running after creation for running app tests
+./__test__/run-tests.sh create --no-teardown
 ```
 
-To tear down the cluster:
+This creates and verifies: NixOS installation, etcd cluster, wireguard overlay network, and confd configuration.
+
+### 2. Run app_module tests against the cluster
+
+Once you have a running cluster (created with `--no-teardown`), use `run` to test specific app_modules:
 
 ```sh
-test-nix-infra-ha-base.sh teardown --env=nix-infra-ha-cluster/.env
+# Run a single app test (e.g., mariadb)
+./__test__/run-tests.sh run mariadb
+
+# Run multiple app tests
+./__test__/run-tests.sh run mariadb mongodb-pod
+
+# Keep test apps deployed after running
+./__test__/run-tests.sh run --no-teardown mariadb
+```
+
+Available tests are defined in `__test__/<test-name>/test.sh` (e.g., `mariadb`, `mongodb-pod`, `elasticsearch-pod`, `keydb-pod`).
+
+### Other test commands
+
+```sh
+# Reset cluster state between test runs
+./__test__/run-tests.sh reset mariadb
+
+# Destroy the entire test cluster
+./__test__/run-tests.sh destroy
+
+# Check cluster health
+./__test__/run-tests.sh test
+```
+
+Useful commands for exploring a running test cluster:
+
+```sh
+./__test__/run-tests.sh ssh service001
+./__test__/run-tests.sh cmd --target=service001 "uptime"
+./__test__/run-tests.sh etcd services
 ```
 
 ## Node Types
@@ -52,16 +125,13 @@ cluster_node[Cluster Node]
 ingress_node[Ingress Node]
 ```
 
-The control node(s) make up the control plane and handles dynamic cluster state management such as:
+**Control nodes** make up the control plane and handle dynamic cluster state:
+- Overlay network configuration
+- Service mesh configuration
 
-- overlay network
-- service mesh
+**Cluster nodes** run databases and applications.
 
-This allows us to limit interaction during deployment to the specific nodes being changed. The cluster will automatically propagate changes to the other affected nodes in the cluster.
-
-The worker nodes run databases and applications.
-
-The ingress node(s) exposes the cluster to the internet.
+**Ingress nodes** expose the cluster to the internet.
 
 ## Cluster Topology
 
@@ -84,11 +154,9 @@ direction TB
 end
 ```
 
-Orchestration and configuration of the cluster nodes is done over SSH directly to each target node. This allows parallell execution.
-
-The overlay network is a Flanneld mesh network over a Wireguard encrypted network interface.
-
-Services and applications are exposed over a service mesh through local haproxy loadbalancer. This can provide a fault tolerant setup when you deploy multiple instances of a service or app.
+- Orchestration is done over SSH directly to each target node (allows parallel execution)
+- Overlay network uses Flanneld mesh over Wireguard encrypted interfaces
+- Service mesh uses local HAProxy load balancers for fault tolerance
 
 ```mermaid
 stateDiagram-v2
@@ -118,9 +186,44 @@ state cluster_node {
 cluster_node : cluster_node / ingress_node
 ```
 
-## Deploying an Application
-Each node in the cluster has it's own configuration file in the `nodes/` folder. These files determine what apps to run and how you want them to be configured. Each app is packaged in the `app_modules/` folder.
+## Directory Structure
 
-The actual deployment is done using the `deploy-apps` command and specifying the target nodes you want to update. All app configurations on each target node will be updated to make sure the state is synced with your configuration. Since only the specified target nodes are affected, you can perform a staggered rollout to avoid downtime.
+```
+.
+├── cli                 # Main CLI for infrastructure management
+├── .env                # Environment configuration (create from .env.in)
+├── nodes/              # Per-node configuration files
+├── node_types/         # Node type templates
+├── app_modules/        # Application module definitions
+├── app_images/         # Container images for deployment
+├── __test__/           # Test scripts and test definitions
+└── scripts/            # Utility scripts
+```
 
-When an application is brought down, systemd will unregister the instance as an ingress backend. Once the application is up and running it will be registered again. This state is maintained by the etcd database.
+## Deploying Applications
+
+Each node has its configuration in `nodes/`. These files determine what apps to run and their settings. Apps are packaged in `app_modules/`.
+
+Deploy using the `update` command:
+
+```sh
+./cli update --env=.env service001 service002
+```
+
+Only specified target nodes are affected, allowing staggered rollouts to avoid downtime. When an app restarts, systemd automatically unregisters/registers it with the service mesh.
+
+## Secrets
+
+Store secrets securely using the nix-infra CLI:
+
+```sh
+nix-infra secrets store -d . --secret="my-secret-value" --name="app.secret"
+```
+
+Or save action output as a secret:
+
+```sh
+./cli action --target=service001 mariadb create-admin --save-as-secret="mariadb.admin.connectionString"
+```
+
+Secrets are encrypted locally and deployed as systemd credentials (automatically encrypted/decrypted on demand).
