@@ -1,27 +1,39 @@
 #!/usr/bin/env sh
-read -p "Enter folder name [nix-infra-ha-cluster]: " name
-name=${name:-nix-infra-ha-cluster}
+BRANCH=${BRANCH:-"main"}
+REPO=${REPO:-"git@github.com:jhsware/nix-infra-ha-cluster.git"}
 
-mkdir -p $name
 
-fetch() {
-  if command -v curl >/dev/null 2>&1; then
-    curl -s $2 -o $3
-  elif command -v wget >/dev/null 2>&1; then
-    wget -q $2 -O $3
-  else
-    echo "neither curl nor wget is installed. Please install and try again."
-    exit 1
-  fi
-  chmod $1 $3
-}
+# Check for git CLI
+if ! command -v git >/dev/null 2>&1; then
+  echo "You need 'git' for this script to work."
+  echo "Install git using your prefered package manager. If in doubt, install Determinate Nix"
+  echo "https://docs.determinate.systems/determinate-nix/ and run: 'nix-shell -p git'"
+  echo
+  echo "With nix-shell you get ephemeral shell environments. Learn more:"
+  echo "https://medium.com/@nonickedgr/exploring-nix-shell-a-game-changer-for-ephemeral-environments-5c622e4074a8"
+  exit 1
+fi
 
-fetch 755 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/test-nix-infra-ha-base.sh $name/test-nix-infra-ha-base.sh
-fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/check.sh $name/check.sh
-fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/.env.in $name/.env
+
+printf "Enter folder name [test-nix-infra-ha-cluster]: "
+read -r name
+name=${name:-test-nix-infra-ha-cluster}
+
+if [ -e "./$name" ]; then
+  echo "Folder or file $name already exists in this directory, aborting."
+  exit 1
+fi
+
+git clone -b "$BRANCH" "$REPO" "$name"
+cp "$name/.env.in" "$name/.env"
+
 echo "Done!"
 echo
 echo "Make sure you have installed nix-infra, then:"
-echo "1. Edit $name/.env"
-echo "2. Run $name/test-nix-infra-ha-base.sh --env=$name/.env"
+echo
+echo "1. cd ./$name"
+echo "2. Edit .env"
+echo "3. Run:"
+echo "   ./cli --help              - Manage infrastructure (create, destroy, ssh, etc.)"
+echo "   ./__test__/run-tests.sh --help - Run test suite against cluster"
 echo

@@ -2,10 +2,13 @@
   imports = [
     ./app-pod
     ./app-mongodb-pod
+    ./app-mariadb-pod
     ./app-elasticsearch-pod
     ./app-redis-pod
-    ./mongodb
-    ./elasticsearch
-    ./keydb
+    ./mongodb-pod
+    ./elasticsearch-pod
+    ./keydb-pod
+    ./mariadb-pod
+    ./mariadb
   ];
 }

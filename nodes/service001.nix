@@ -11,36 +11,31 @@
 
   config.infrastructure.podman.dockerRegistryHostPort = "[%%registry001.overlayIp%%]:5000";
 
-  config.infrastructure.mongodb-4 = {
+  config.infrastructure.mongodb-4-pod = {
     enable = true;
     replicaSetName = "rs0";
     bindToIp = "[%%localhost.overlayIp%%]";
   };
 
-  # config.infrastructure.redis-cluster-pod = {
-  #   enable = true;
-  #   bindToIp = "10.10.42.0";
-  # };
-
-  config.infrastructure.keydb-ha = {
+  config.infrastructure.mariadb-cluster = {
     enable = true;
+    clusterName = "my_galera_cluster";
+    nodeName = "[%%localhost.hostname%%]";
     bindToIp = "[%%localhost.overlayIp%%]";
-    replicaOf = [
-      { host = "[%%service002.overlayIp%%]"; port = 6380; }
-      { host = "[%%service003.overlayIp%%]"; port = 6380; }
+    nodeAddresses = [
+      "[%%service001.overlayIp%%]"
+      "[%%service002.overlayIp%%]"
+      "[%%service003.overlayIp%%]"
     ];
+    rootPassword = "your-secure-password";
   };
 
-  config.infrastructure.elasticsearch = {
-    enable = true;
-    bindToIp = "[%%localhost.overlayIp%%]";
-    clusterName = "elasticsearch";
-    clusterMembers = [
-      { host = "[%%service001.overlayIp%%]"; name = "service001"; }
-      { host = "[%%service002.overlayIp%%]"; name = "service002"; }
-      { host = "[%%service003.overlayIp%%]"; name = "service003"; }
-    ];
-  };
 
-  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 27017 6380 9200 9300 9443 ];
+  config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [
+    27017 # Mongodb
+    3306 4567 4568 4444 # Mariadb
+  ];
+  config.networking.firewall.interfaces."flannel-wg".allowedUDPPorts = [
+    4567 # Mariadb
+  ];
 }

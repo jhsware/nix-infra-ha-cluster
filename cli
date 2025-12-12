@@ -1,0 +1,579 @@
+#!/usr/bin/env bash
+WORK_DIR=${WORK_DIR:-"$(dirname "$0")"}
+NIX_INFRA=${NIX_INFRA:-"nix-infra"}
+NIXOS_VERSION=${NIXOS_VERSION:-"25.05"}
+SSH_KEY=${SSH_KEY:-"nixinfra"}
+SSH_EMAIL=${SSH_EMAIL:-"your-email@example.com"}
+SECRETS_PWD=${SECRETS_PWD:-"my_secrets_password"}
+LOCATION=${LOCATION:-"hel1"}
+MACHINE_TYPE=${MACHINE_TYPE:-"cpx21"}
+ENV=${ENV:-"$WORK_DIR/.env"}
+
+# ============================================================================
+# Error handling - output errors to stderr
+# ============================================================================
+
+err() {
+  echo "$@" >&2
+}
+
+die() {
+  err "$@"
+  exit 1
+}
+
+# ============================================================================
+# Check for nix-infra CLI
+# ============================================================================
+
+if ! command -v nix-infra >/dev/null 2>&1; then
+  die "The 'nix-infra' cli is required for this script to work.
+Visit https://github.com/jhsware/nix-infra for instructions on installation"
+fi
+
+# ============================================================================
+# Help text
+# ============================================================================
+
+__help_text__=$(cat <<EOF
+nix-infra-ha-cluster CLI
+========================
+
+Usage: $0 <command> [options]
+
+Commands:
+  create <nodes>              Provision and initialize cluster nodes
+  destroy                     Destroy cluster nodes
+      --target=<nodes>        Nodes to destroy
+      --ctrl-nodes=<nodes>    Control plane nodes for etcd cleanup
+  update <nodes>              Update node configuration and deploy apps
+  upgrade-nixos <nodes>       Upgrade NixOS version on nodes
+  publish-image               Publish container image to registry
+  ssh <node>                  SSH into a node
+  cmd                         Run command on node(s)
+      --target=<nodes>        Target node(s)
+      <command>               Command to execute
+  etcd <etcd-cmd>             Run etcd command on ctrl nodes
+  action                      Run app module action
+      --target=<node>         Target node
+      <module>                App module name
+      <cmd>                   Action command to run
+  rollback <nodes>            Rollback to previous NixOS configuration
+  port-forward                Forward port from remote node to local
+      --target=<node>         Target node to forward from
+      --port-mapping=<l:r>    Port mapping as local:remote
+  claude                      Launch Claude with nix-infra-cluster-mcp
+
+Options:
+  --env=<file>            Environment file (default: .env)
+  --target=<nodes>        Target node(s) for commands
+  --ctrl-nodes=<nodes>    Control plane nodes (for etcd operations)
+  --node-module=<file>    Node module file (default: node_types/cluster_node.nix)
+  --service-group=<group> Service group for node init
+  --image-name=<name>     Container image name (for publish-image)
+  --image-tag=<tag>       Container image tag (for publish-image)
+  --file=<path>           Image file path (for publish-image)
+  --registry=<node>       Registry node (for publish-image)
+  --port-mapping=<l:r>    Port mapping local:remote (for port-forward)
+
+Examples:
+  # Create cluster nodes
+  $0 create --env=.env etcd001 service001 service002
+
+  # SSH into a node
+  $0 ssh --env=.env service001
+
+  # Run a command on nodes
+  $0 cmd --env=.env --target="service001 service002" "systemctl status nginx"
+
+  # Query etcd
+  $0 etcd --env=.env --ctrl-nodes=etcd001 get --prefix /nodes
+
+  # Update configuration
+  $0 update --env=.env service001 service002
+
+  # Upgrade NixOS
+  $0 upgrade-nixos --env=.env service001
+
+  # Publish container image
+  $0 publish-image --env=.env --registry=registry001 --image-name=myapp --image-tag=1.0 --file=./app.tar.gz
+
+  # Run app action
+  $0 action --env=.env --target=service001 mariadb status
+
+  # Destroy cluster
+  $0 destroy --env=.env --target="service001 service002" --ctrl-nodes="etcd001"
+
+  # Rollback to previous configuration
+  $0 rollback --env=.env service001 service002
+
+  # Forward remote port to local
+  $0 port-forward --env=.env --target=service001 --port-mapping=8080:80
+
+  # Launch Claude with MCP
+  $0 claude --env=.env
+EOF
+)
+
+# ============================================================================
+# Parse command
+# ============================================================================
+
+VALID_COMMANDS="create destroy update upgrade-nixos publish-image ssh cmd etcd action rollback port-forward claude"
+
+if [[ " $VALID_COMMANDS " == *" $1 "* ]]; then
+  CMD="$1"
+  shift
+else
+  echo "$__help_text__"
+  exit 1
+fi
+
+# ============================================================================
+# Parse options
+# ============================================================================
+
+for i in "$@"; do
+  case $i in
+    --help)
+      echo "$__help_text__"
+      exit 0
+      ;;
+    --env=*)
+      ENV="${i#*=}"
+      shift
+      ;;
+    --target=*)
+      TARGET="${i#*=}"
+      shift
+      ;;
+    --ctrl-nodes=*)
+      CTRL_NODES="${i#*=}"
+      shift
+      ;;
+    --node-module=*)
+      NODE_MODULE="${i#*=}"
+      shift
+      ;;
+    --service-group=*)
+      SERVICE_GROUP="${i#*=}"
+      shift
+      ;;
+    --image-name=*)
+      IMAGE_NAME="${i#*=}"
+      shift
+      ;;
+    --image-tag=*)
+      IMAGE_TAG="${i#*=}"
+      shift
+      ;;
+    --file=*)
+      IMAGE_FILE="${i#*=}"
+      shift
+      ;;
+    --registry=*)
+      REGISTRY="${i#*=}"
+      shift
+      ;;
+    --port-mapping=*)
+      PORT_MAPPING="${i#*=}"
+      shift
+      ;;
+    --cluster-uuid=*)
+      CLUSTER_UUID="${i#*=}"
+      shift
+      ;;
+    *)
+      REST="$@"
+      break
+      ;;
+  esac
+done
+
+# ============================================================================
+# Load environment file
+# ============================================================================
+
+if [ -n "$ENV" ] && [ -f "$ENV" ]; then
+  # shellcheck source=/dev/null
+  source "$ENV"
+elif [ -n "$ENV" ] && [ ! -f "$ENV" ]; then
+  err "Warning: Environment file '$ENV' not found"
+fi
+
+# ============================================================================
+# Validation helpers
+# ============================================================================
+
+check_required_vars() {
+  local missing=""
+  for var in "$@"; do
+    if [ -z "${!var}" ]; then
+      missing="$missing $var"
+    fi
+  done
+  if [ -n "$missing" ]; then
+    die "Missing required environment variables:$missing
+Load through .env-file specified with --env option."
+  fi
+}
+
+check_required_args() {
+  local name="$1"
+  local value="$2"
+  if [ -z "$value" ]; then
+    die "Missing required argument: $name"
+  fi
+}
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+printTime() {
+  local _start=$1
+  local _end=$2
+  local _secs=$((_end - _start))
+  printf '%02dh:%02dm:%02ds' $((_secs / 3600)) $((_secs % 3600 / 60)) $((_secs % 60))
+}
+
+destroyNodes() {
+  check_required_args "--target" "$TARGET"
+  check_required_args "--ctrl-nodes" "$CTRL_NODES"
+  
+  $NIX_INFRA cluster destroy -d "$WORK_DIR" --env="$ENV" --batch \
+    --target="$TARGET" \
+    --ctrl-nodes="$CTRL_NODES"
+}
+
+cleanupOnFail() {
+  if [ $1 -ne 0 ]; then
+    err "$2"
+    destroyNodes
+    exit 1
+  fi
+}
+
+# ============================================================================
+# Command: ssh
+# ============================================================================
+
+if [ "$CMD" = "ssh" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "<node>" "$REST"
+  
+  $NIX_INFRA cluster ssh -d "$WORK_DIR" --env="$ENV" --target="$REST"
+  exit 0
+fi
+
+# ============================================================================
+# Command: cmd
+# ============================================================================
+
+if [ "$CMD" = "cmd" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "--target" "$TARGET"
+  check_required_args "<command>" "$REST"
+  
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --env="$ENV" --target="$TARGET" "$REST"
+  exit 0
+fi
+
+# ============================================================================
+# Command: etcd
+# ============================================================================
+
+if [ "$CMD" = "etcd" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "--ctrl-nodes" "$CTRL_NODES"
+  check_required_args "<etcd-command>" "$REST"
+  
+  $NIX_INFRA cluster etcd "$REST" -d "$WORK_DIR" --env="$ENV" --target="$CTRL_NODES"
+  exit 0
+fi
+
+# ============================================================================
+# Command: action
+# ============================================================================
+
+if [ "$CMD" = "action" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "--target" "$TARGET"
+  check_required_args "<module> <cmd>" "$REST"
+  
+  read -r module action_cmd <<< "$REST"
+  if [ -z "$module" ] || [ -z "$action_cmd" ]; then
+    die "Usage: $0 action --target=<node> <module> <cmd>"
+  fi
+  
+  $NIX_INFRA cluster action -d "$WORK_DIR" --env="$ENV" --target="$TARGET" \
+    --app-module="$module" --cmd="$action_cmd"
+  exit 0
+fi
+
+# ============================================================================
+# Command: destroy
+# ============================================================================
+
+if [ "$CMD" = "destroy" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "--target" "$TARGET"
+  check_required_args "--ctrl-nodes" "$CTRL_NODES"
+  
+  destroyNodes
+  exit 0
+fi
+
+# ============================================================================
+# Command: update
+# ============================================================================
+
+if [ "$CMD" = "update" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "<nodes>" "$REST"
+  
+  NODE_MODULE=${NODE_MODULE:-"node_types/cluster_node.nix"}
+  
+  $NIX_INFRA cluster update-node -d "$WORK_DIR" --env="$ENV" --batch \
+    --nixos-version="$NIXOS_VERSION" \
+    --node-module="$NODE_MODULE" \
+    --ctrl-nodes="${CTRL_NODES:-$REST}" \
+    --target="$REST"
+  
+  $NIX_INFRA cluster deploy-apps -d "$WORK_DIR" --env="$ENV" --batch \
+    --target="$REST"
+  
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --env="$ENV" --target="$REST" "nixos-rebuild switch --fast"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --env="$ENV" --target="$REST" "systemctl restart confd"
+  exit 0
+fi
+
+# ============================================================================
+# Command: upgrade-nixos
+# ============================================================================
+
+if [ "$CMD" = "upgrade-nixos" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "<nodes>" "$REST"
+  
+  $NIX_INFRA cluster upgrade-nixos -d "$WORK_DIR" --env="$ENV" --batch \
+    --nixos-version="$NIXOS_VERSION" \
+    --target="$REST"
+  exit 0
+fi
+
+# ============================================================================
+# Command: publish-image
+# ============================================================================
+
+if [ "$CMD" = "publish-image" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "--registry" "$REGISTRY"
+  check_required_args "--image-name" "$IMAGE_NAME"
+  check_required_args "--image-tag" "$IMAGE_TAG"
+  check_required_args "--file" "$IMAGE_FILE"
+  
+  if [ ! -f "$IMAGE_FILE" ]; then
+    die "Image file not found: $IMAGE_FILE"
+  fi
+  
+  $NIX_INFRA registry publish-image -d "$WORK_DIR" --env="$ENV" --batch \
+    --target="$REGISTRY" \
+    --image-name="$IMAGE_NAME" \
+    --image-tag="$IMAGE_TAG" \
+    --file="$IMAGE_FILE"
+  exit 0
+fi
+
+# ============================================================================
+# Command: create
+# ============================================================================
+
+if [ "$CMD" = "create" ]; then
+  check_required_vars HCLOUD_TOKEN SSH_KEY
+  check_required_args "<nodes>" "$REST"
+  
+  TARGET="$REST"
+  
+  _start=$(date +%s)
+  
+  # Initialize if not already done (check for ssh directory)
+  if [ ! -d "$WORK_DIR/ssh" ]; then
+    echo "Initializing nix-infra..."
+    $NIX_INFRA init -d "$WORK_DIR" --env="$ENV" --batch
+  fi
+  
+  # Add SSH key to agent
+  ssh-add "$WORK_DIR/ssh/$SSH_KEY" 2>/dev/null || true
+  
+  echo "*** Provisioning NixOS $NIXOS_VERSION ***"
+  
+  $NIX_INFRA cluster provision -d "$WORK_DIR" --env="$ENV" --batch \
+    --nixos-version="$NIXOS_VERSION" \
+    --ssh-key="$SSH_KEY" \
+    --location="$LOCATION" \
+    --machine-type="$MACHINE_TYPE" \
+    --node-names="$TARGET"
+  
+  cleanupOnFail $? "ERROR: Provisioning failed! Cleaning up..."
+  
+  _provision=$(date +%s)
+  
+  echo "*** Initializing nodes ***"
+  
+  # Determine if we're initializing ctrl nodes or regular nodes
+  # First node is assumed to be ctrl node if no --ctrl-nodes specified
+  if [ -z "$CTRL_NODES" ]; then
+    CTRL_NODES=$(echo "$TARGET" | awk '{print $1}')
+  fi
+  
+  # Check if any target nodes are ctrl nodes
+  CTRL_TARGET=""
+  CLUSTER_TARGET=""
+  for node in $TARGET; do
+    if [[ " $CTRL_NODES " == *" $node "* ]]; then
+      CTRL_TARGET="$CTRL_TARGET $node"
+    else
+      CLUSTER_TARGET="$CLUSTER_TARGET $node"
+    fi
+  done
+  CTRL_TARGET=$(echo "$CTRL_TARGET" | xargs)
+  CLUSTER_TARGET=$(echo "$CLUSTER_TARGET" | xargs)
+  
+  # Init ctrl nodes if any
+  if [ -n "$CTRL_TARGET" ]; then
+    CLUSTER_UUID=${CLUSTER_UUID:-$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "d6b76143-bcfa-490a-8f38-91d79be62fab")}
+    
+    $NIX_INFRA cluster init-ctrl -d "$WORK_DIR" --env="$ENV" --batch \
+      --nixos-version="$NIXOS_VERSION" \
+      --cluster-uuid="$CLUSTER_UUID" \
+      --target="$CTRL_TARGET"
+    
+    sleep 3 # Allow etcd to start
+  fi
+  
+  # Init cluster nodes if any
+  if [ -n "$CLUSTER_TARGET" ]; then
+    NODE_MODULE=${NODE_MODULE:-"node_types/cluster_node.nix"}
+    SERVICE_GROUP=${SERVICE_GROUP:-"services"}
+    
+    $NIX_INFRA cluster init-node -d "$WORK_DIR" --env="$ENV" --batch \
+      --nixos-version="$NIXOS_VERSION" \
+      --target="$CLUSTER_TARGET" \
+      --node-module="$NODE_MODULE" \
+      --service-group="$SERVICE_GROUP" \
+      --ctrl-nodes="$CTRL_NODES"
+    
+    $NIX_INFRA cluster cmd -d "$WORK_DIR" --env="$ENV" --target="$CLUSTER_TARGET" "nixos-rebuild switch --fast"
+    $NIX_INFRA cluster cmd -d "$WORK_DIR" --env="$ENV" --target="$CLUSTER_TARGET" "systemctl restart confd"
+  fi
+  
+  _init_nodes=$(date +%s)
+  
+  _end=$(date +%s)
+  
+  echo ""
+  echo "=========================================="
+  printf '+ provision    %s\n' "$(printTime $_start $_provision)"
+  printf '+ init nodes   %s\n' "$(printTime $_provision $_init_nodes)"
+  printf '= TOTAL        %s\n' "$(printTime $_start $_end)"
+  echo "=========================================="
+  echo "Done!"
+  exit 0
+fi
+
+# ============================================================================
+# Command: rollback
+# ============================================================================
+
+if [ "$CMD" = "rollback" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "<nodes>" "$REST"
+  
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --env="$ENV" --target="$REST" "nixos-rebuild switch --rollback"
+  exit 0
+fi
+
+# ============================================================================
+# Command: port-forward
+# ============================================================================
+
+if [ "$CMD" = "port-forward" ]; then
+  check_required_vars HCLOUD_TOKEN
+  check_required_args "--target" "$TARGET"
+  check_required_args "--port-mapping" "$PORT_MAPPING"
+  
+  OLD_IFS=$IFS
+  IFS=: read -r LOCAL_PORT REMOTE_PORT <<< "$PORT_MAPPING"
+  IFS=$OLD_IFS
+  
+  if [ -z "$LOCAL_PORT" ] || [ -z "$REMOTE_PORT" ]; then
+    die "Invalid port mapping format. Use --port-mapping=<local>:<remote>"
+  fi
+  
+  $NIX_INFRA cluster port-forward -d "$WORK_DIR" --env="$ENV" \
+    --target="$TARGET" \
+    --local-port="$LOCAL_PORT" \
+    --remote-port="$REMOTE_PORT"
+  exit 0
+fi
+
+# ============================================================================
+# Command: claude
+# ============================================================================
+
+if [ "$CMD" = "claude" ]; then
+  check_required_vars SSH_KEY HCLOUD_TOKEN
+  
+  if ! command -v nix-infra-cluster-mcp &>/dev/null; then
+    die "nix-infra-cluster-mcp is not installed"
+  fi
+  
+  # Detect OS and set paths accordingly
+  case "$(uname -s)" in
+    Darwin)
+      path_to_claude="$HOME/Library/Application Support/Claude"
+      claude_bin="/Applications/Claude.app/Contents/MacOS/Claude"
+      ;;
+    Linux)
+      path_to_claude="${XDG_CONFIG_HOME:-$HOME/.config}/Claude"
+      claude_bin="claude"
+      ;;
+    *)
+      die "Unsupported operating system: $(uname -s)"
+      ;;
+  esac
+  
+  if [ ! -d "$path_to_claude" ]; then
+    die "You do not have Claude Application Support files in your user. Start the app once manually and retry."
+  fi
+  
+  # Backup existing config
+  if [ -f "$path_to_claude/claude_desktop_config.json" ]; then
+    cp -f "$path_to_claude/claude_desktop_config.json" "$path_to_claude/claude_desktop_config.json.nix-infra.bak"
+  fi
+  
+  # Create mcp configuration for Claude
+  cat >"$path_to_claude/claude_desktop_config.json" <<EOF
+{
+  "mcpServers": {
+    "nix-infra-cluster-mcp": {
+      "command": "nix-infra-cluster-mcp"
+    }
+  }
+}
+EOF
+  
+  # Run claude
+  "$claude_bin" 2>&1
+  
+  # Reset mcp configuration for Claude
+  if [ -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" ]; then
+    cp -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" "$path_to_claude/claude_desktop_config.json"
+  fi
+  
+  exit 0
+fi
+
+# If we get here, command wasn't handled
+die "Unknown command: $CMD"
