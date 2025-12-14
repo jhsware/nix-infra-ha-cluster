@@ -2,7 +2,14 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 WORK_DIR=${WORK_DIR:-$(dirname "$SCRIPT_DIR")}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
-NIXOS_VERSION=${NIXOS_VERSION:-"24.11"}
+
+# Check for nix-infra CLI if using default
+if [ "$NIX_INFRA" = "nix-infra" ] && ! command -v nix-infra >/dev/null 2>&1; then
+  echo "The 'nix-infra' CLI is required for this script to work."
+  echo "Visit https://github.com/jhsware/nix-infra for installation instructions."
+  exit 1
+fi
+
 SSH_KEY="nixinfra"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
