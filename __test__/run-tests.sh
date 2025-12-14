@@ -2,6 +2,7 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 WORK_DIR=${WORK_DIR:-$(dirname "$SCRIPT_DIR")}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
+NIXOS_VERSION=${NIXOS_VERSION:-"25.11"}
 SSH_KEY="nixinfra"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
