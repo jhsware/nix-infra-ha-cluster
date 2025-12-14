@@ -65,25 +65,50 @@ fi
 if [ "$CMD" = "teardown" ]; then
   echo "Tearing down MongoDB test..."
   
-  # Stop and remove container if running on service nodes
+  # Stop MongoDB services on service nodes
   echo "  Stopping MongoDB services..."
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" \
     'systemctl stop podman-mongodb-pod 2>/dev/null || true'
   
-  # Clean up data directory
-  echo "  Removing MongoDB data files..."
-  _cmd_='if ! systemctl cat podman-mongodb-pod.service &>/dev/null; then rm -rf /var/lib/mongodb; fi'
+  # Stop and remove MongoDB containers on service nodes
+  echo "  Removing MongoDB containers..."
+  _cmd_='podman stop -a 2>/dev/null || true; podman rm -af 2>/dev/null || true'
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" "$_cmd_"
+  
+  # Remove MongoDB images on service nodes
+  echo "  Removing MongoDB images on service nodes..."
+  _cmd_='podman rmi -af 2>/dev/null || true'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" "$_cmd_"
+  
+  # Force remove MongoDB data files
+  echo "  Removing MongoDB data files..."
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" \
+    'rm -rf /var/lib/mongodb/*'
   
   # Stop app container on worker nodes
   echo "  Stopping app services..."
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" \
     'systemctl stop podman-app-mongodb-pod 2>/dev/null || true'
   
-  # Remove OCI images
-  echo "  Removing OCI images..."
-  _cmd_='podman stop $(podman ps -aq) 2>/dev/null; podman rm $(podman ps -aq) 2>/dev/null; podman rmi -f $(podman images -aq) 2>/dev/null || true'
+  # Stop and remove all containers on worker nodes
+  echo "  Removing containers on worker nodes..."
+  _cmd_='podman stop -a 2>/dev/null || true; podman rm -af 2>/dev/null || true'
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
+  
+  # Remove all local podman images on worker nodes
+  echo "  Removing local podman images..."
+  _cmd_='podman rmi -af 2>/dev/null || true'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
+  
+  # Remove image from docker registry
+  echo "  Removing images from registry..."
+  _cmd_='curl -s -X DELETE http://127.0.0.1:5000/v2/apps/app-mongodb-pod/manifests/$(curl -s -H "Accept: application/vnd.docker.distribution.manifest.v2+json" http://127.0.0.1:5000/v2/apps/app-mongodb-pod/manifests/latest -I 2>/dev/null | grep -i docker-content-digest | awk "{print \$2}" | tr -d "\r") 2>/dev/null || true'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
+  
+  # Trigger registry garbage collection
+  echo "  Running registry garbage collection..."
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" \
+    'systemctl start docker-registry-garbage-collect 2>/dev/null || true'
 
   # Remove Systemd credentials
   echo "  Removing Systemd credentials..."
@@ -190,6 +215,12 @@ for node in service001 service002 service003; do
   fi
 done
 
+# Detect mongo shell for direct verification
+echo ""
+echo "Detecting MongoDB shell..."
+MONGO_SHELL=$(get_mongo_shell "service001")
+echo "  Using: $MONGO_SHELL"
+
 # ============================================================================
 # MongoDB Replica Set Initialization
 # ============================================================================
@@ -198,20 +229,43 @@ echo ""
 echo "Step 5: Initializing MongoDB replica set..."
 echo ""
 
-$NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="init" --env-vars="NODE_1=[%%service001.overlayIp%%],NODE_2=[%%service002.overlayIp%%],NODE_3=[%%service003.overlayIp%%]"
+$NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb-pod" --cmd="init" --env-vars="NODE_1=[%%service001.overlayIp%%],NODE_2=[%%service002.overlayIp%%],NODE_3=[%%service003.overlayIp%%]"
 
-# Wait for replica set to initialize
-sleep 5
+# Wait for replica set to initialize and elect primary
+echo ""
+echo "Waiting for replica set to elect primary..."
+rs_status=""
+for i in {1..30}; do
+  rs_status=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb-pod" --cmd="status")
+  if [[ "$rs_status" == *"PRIMARY"* ]]; then
+    break
+  fi
+  echo "  Attempt $i: No primary yet, waiting..."
+  sleep 2
+done
 
 # Check replica set status
 echo ""
 echo "Checking replica set status..."
-rs_status=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="status")
 if [[ "$rs_status" == *"PRIMARY"* ]]; then
   echo -e "  ${GREEN}✓${NC} Replica set has a PRIMARY member [pass]"
 else
   echo -e "  ${RED}✗${NC} Replica set PRIMARY not found [fail]"
 fi
+
+# Direct verification using detected shell
+echo ""
+echo "Direct verification of replica set members..."
+for node in service001 service002 service003; do
+  member_state=$(cmd "$node" "podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --port 27017 --quiet --eval 'rs.status().myState'")
+  if [[ "$member_state" == "1" ]]; then
+    echo -e "  ${GREEN}✓${NC} $node is PRIMARY (state=$member_state) [pass]"
+  elif [[ "$member_state" == "2" ]]; then
+    echo -e "  ${GREEN}✓${NC} $node is SECONDARY (state=$member_state) [pass]"
+  else
+    echo -e "  ${RED}✗${NC} $node has unexpected state: $member_state [fail]"
+  fi
+done
 
 # ============================================================================
 # Database and User Setup
@@ -222,7 +276,7 @@ echo "Step 6: Creating databases and users..."
 echo ""
 
 echo "  Creating database 'hello'..."
-result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="create-db --database=hello")
+result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb-pod" --cmd="create-db --database=hello")
 if [[ "$result" == *"mongodb://"* ]]; then
   echo -e "  ${GREEN}✓${NC} Database 'hello' created [pass]"
 else
@@ -230,7 +284,7 @@ else
 fi
 
 echo "  Creating database 'foo'..."
-result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="create-db --database=foo")
+result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb-pod" --cmd="create-db --database=foo")
 if [[ "$result" == *"mongodb://"* ]]; then
   echo -e "  ${GREEN}✓${NC} Database 'foo' created [pass]"
 else
@@ -238,7 +292,7 @@ else
 fi
 
 echo "  Creating admin user for 'foo'..."
-result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="create-admin --database=foo --username=foo-admin")
+result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb-pod" --cmd="create-admin --database=foo --username=foo-admin")
 if [[ "$result" == *"mongodb://"* ]]; then
   echo -e "  ${GREEN}✓${NC} Admin user 'foo-admin' created [pass]"
 else
@@ -246,7 +300,7 @@ else
 fi
 
 echo "  Creating admin user for 'hello'..."
-result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="create-admin --database=hello --username=hello-admin")
+result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb-pod" --cmd="create-admin --database=hello --username=hello-admin")
 if [[ "$result" == *"mongodb://"* ]]; then
   echo -e "  ${GREEN}✓${NC} Admin user 'hello-admin' created [pass]"
 else
@@ -341,7 +395,7 @@ echo "Step 8: Verifying MongoDB action commands..."
 echo ""
 
 echo "Checking database list..."
-dbs_result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="dbs")
+dbs_result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb-pod" --cmd="dbs")
 if [[ "$dbs_result" == *"hello"* ]] && [[ "$dbs_result" == *"foo"* ]]; then
   echo -e "  ${GREEN}✓${NC} Database list shows 'hello' and 'foo' [pass]"
 else
@@ -349,7 +403,7 @@ else
 fi
 
 echo "Checking user list..."
-users_result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="users")
+users_result=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb-pod" --cmd="users")
 if [[ "$users_result" == *"foo-admin"* ]] && [[ "$users_result" == *"hello-admin"* ]]; then
   echo -e "  ${GREEN}✓${NC} User list shows admin users [pass]"
 else

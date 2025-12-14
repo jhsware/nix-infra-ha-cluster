@@ -61,6 +61,8 @@ in
       ports = [
         "${cfg.bindToIp}:${toString cfg.bindToPort}:27017"
       ];
+      # Use host networking so MongoDB can see the overlay IP and identify itself in the replica set
+      networkType = "host";
       bindToIp = cfg.bindToIp;
       volumes = [
         "${dataDir}:/data/db"
