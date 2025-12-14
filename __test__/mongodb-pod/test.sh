@@ -42,6 +42,10 @@ publishImageToRegistry() {
       --use-localhost
 }
 
+cmd() {
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$1" "$2"
+}
+
 # Detect which mongo shell is available (mongosh for 5+, mongo for 4.x)
 get_mongo_shell() {
   local node=$1
