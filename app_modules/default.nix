@@ -6,6 +6,7 @@
     ./app-elasticsearch-pod
     ./app-redis-pod
     ./mongodb-pod
+    ./mongodb
     ./elasticsearch-pod
     ./keydb-pod
     ./mariadb-pod
