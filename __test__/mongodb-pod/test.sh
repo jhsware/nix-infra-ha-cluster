@@ -62,16 +62,29 @@ if [ "$CMD" = "teardown" ]; then
   echo "Tearing down MongoDB test..."
   
   # Stop and remove container if running on service nodes
+  echo "  Stopping MongoDB services..."
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" \
     'systemctl stop podman-mongodb-pod 2>/dev/null || true'
   
   # Clean up data directory
-  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" \
-    'rm -rf /var/lib/mongodb'
+  echo "  Removing MongoDB data files..."
+  _cmd_='if ! systemctl cat podman-mongodb-pod.service &>/dev/null; then rm -rf /var/lib/mongodb; fi'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" "$_cmd_"
   
   # Stop app container on worker nodes
+  echo "  Stopping app services..."
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" \
     'systemctl stop podman-app-mongodb-pod 2>/dev/null || true'
+  
+  # Remove OCI images
+  echo "  Removing OCI images..."
+  _cmd_='podman stop $(podman ps -aq) 2>/dev/null; podman rm $(podman ps -aq) 2>/dev/null; podman rmi -f $(podman images -aq) 2>/dev/null || true'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
+
+  # Remove Systemd credentials
+  echo "  Removing Systemd credentials..."
+  _cmd_="rm -rf /run/credentials/* 2>/dev/null || true; rm -rf /run/systemd/credentials/* 2>/dev/null || true"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
   
   echo "MongoDB teardown complete"
   return 0
