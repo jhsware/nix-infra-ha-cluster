@@ -42,6 +42,10 @@ publishImageToRegistry() {
       --use-localhost
 }
 
+cmd() {
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$1" "$2"
+}
+
 if [ "$CMD" = "publish" ]; then
   echo "Publishing applications..."
   publishImageToRegistry app-elasticsearch-pod "$WORK_DIR/app_images/app-elasticsearch-pod.tar.gz" "1.0"
