@@ -60,20 +60,35 @@ if [ "$CMD" = "teardown" ]; then
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" \
     'systemctl stop mongodb 2>/dev/null || true'
   
-  # Clean up data directory
+  # Force remove MongoDB data files (must happen while service is stopped but before nixos-rebuild)
   echo "  Removing MongoDB data files..."
-  _cmd_='if ! systemctl cat mongodb.service &>/dev/null; then rm -rf /var/lib/mongodb; fi'
-  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" "$_cmd_"
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$SERVICE_NODES" \
+    'rm -rf /var/lib/mongodb/*'
   
   # Stop app container on worker nodes
   echo "  Stopping app services..."
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" \
     'systemctl stop podman-app-mongodb-pod 2>/dev/null || true'
   
-  # Remove OCI images
-  echo "  Removing OCI images..."
-  _cmd_='podman stop $(podman ps -aq) 2>/dev/null; podman rm $(podman ps -aq) 2>/dev/null; podman rmi -f $(podman images -aq) 2>/dev/null || true'
+  # Stop and remove all containers
+  echo "  Removing containers..."
+  _cmd_='podman stop -a 2>/dev/null || true; podman rm -af 2>/dev/null || true'
   $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
+  
+  # Remove all local podman images
+  echo "  Removing local podman images..."
+  _cmd_='podman rmi -af 2>/dev/null || true'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
+  
+  # Remove image from docker registry
+  echo "  Removing images from registry..."
+  _cmd_='curl -s -X DELETE http://127.0.0.1:5000/v2/apps/app-mongodb-pod/manifests/$(curl -s -H "Accept: application/vnd.docker.distribution.manifest.v2+json" http://127.0.0.1:5000/v2/apps/app-mongodb-pod/manifests/latest -I 2>/dev/null | grep -i docker-content-digest | awk "{print \$2}" | tr -d "\r") 2>/dev/null || true'
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" "$_cmd_"
+  
+  # Trigger registry garbage collection
+  echo "  Running registry garbage collection..."
+  $NIX_INFRA cluster cmd -d "$WORK_DIR" --target="$OTHER_NODES" \
+    'systemctl start docker-registry-garbage-collect 2>/dev/null || true'
 
   # Remove Systemd credentials
   echo "  Removing Systemd credentials..."
@@ -189,13 +204,22 @@ echo ""
 
 $NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="init" --env-vars="NODE_1=[%%service001.overlayIp%%],NODE_2=[%%service002.overlayIp%%],NODE_3=[%%service003.overlayIp%%]"
 
-# Wait for replica set to initialize
-sleep 5
+# Wait for replica set to initialize and elect primary
+echo ""
+echo "Waiting for replica set to elect primary..."
+rs_status=""
+for i in {1..30}; do
+  rs_status=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="status")
+  if [[ "$rs_status" == *"PRIMARY"* ]]; then
+    break
+  fi
+  echo "  Attempt $i: No primary yet, waiting..."
+  sleep 2
+done
 
 # Check replica set status
 echo ""
 echo "Checking replica set status..."
-rs_status=$($NIX_INFRA cluster action -d "$WORK_DIR" --target="service001" --app-module="mongodb" --cmd="status")
 if [[ "$rs_status" == *"PRIMARY"* ]]; then
   echo -e "  ${GREEN}✓${NC} Replica set has a PRIMARY member [pass]"
 else

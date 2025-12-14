@@ -42,7 +42,7 @@ in
     services.mongodb = {
       enable = true;
       package = pkgs.mongodb-ce;
-      bind_ip = cfg.bindToIp;
+      bind_ip = "127.0.0.1,${cfg.bindToIp}";
       dbpath = cfg.dbPath;
       extraConfig = ''
         replication:

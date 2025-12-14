@@ -42,19 +42,19 @@ fi
 
 if [ "$CMD" = "init" ]; then
   echo "Initializing MongoDB replica set"
-  $MONGO_SHELL --port 27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"$NODE_1\", priority: 100},{_id: 1, host: \"$NODE_2\"},{_id: 2, host: \"$NODE_3\"}]})"
+  $MONGO_SHELL --host 127.0.0.1 --port 27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"$NODE_1:27017\", priority: 100},{_id: 1, host: \"$NODE_2:27017\"},{_id: 2, host: \"$NODE_3:27017\"}]})"
   echo "Result Code: $?"
 fi
 
 if [ "$CMD" = "status" ]; then
-  $MONGO_SHELL --quiet --port 27017 --eval 'rs.status()'
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval 'rs.status()'
   echo "Result Code: $?"
 fi
 
 if [ "$CMD" = "dbs" ]; then
   echo "dbs..."
   if [ -z "$VERBOSE" ]; then
-    $MONGO_SHELL --quiet --port 27017 --eval "$(cat <<EOF
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       result.databases.forEach(function(db) {
@@ -63,7 +63,7 @@ if [ "$CMD" = "dbs" ]; then
 EOF
     )"
   else
-    $MONGO_SHELL --quiet --port 27017 --eval "$(cat <<EOF
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       print('\nDatabase List:');
@@ -93,28 +93,22 @@ if [ "$CMD" = "create-db" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
-  $MONGO_SHELL --quiet --port 27017 --eval "$(cat <<EOF
-    db = db.getSiblingDB('$DATABASE');
-
-    let dbExists;
-    try {
-      dbExists = db.stats().ok === 1;
-    } catch (err) {
-      dbExists = false;
-    }
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    // Check if database already exists by listing all databases
+    let dbs = db.adminCommand('listDatabases');
+    let dbExists = dbs.databases.some(d => d.name === '$DATABASE');
 
     if (dbExists) {
       print('Database "$DATABASE" already exists');
       quit(1);
     }
 
-    // Create the database, but remove the collection immediately
-    db.createCollection('temp');
-    db.temp.drop();
+    // Create the database by adding a collection
+    db = db.getSiblingDB('$DATABASE');
+    db.createCollection('_init');
     
-    let adminDb = db.getSiblingDB('admin');
-    // Create roles
-    adminDb.createRole({
+    // Create roles in the target database
+    db.createRole({
       role: '${APP_ROLE}',
       privileges: [
         {
@@ -122,11 +116,11 @@ if [ "$CMD" = "create-db" ]; then
           actions: [ 'find', 'insert', 'update', 'remove', "createCollection", "createIndex" ]
         }
       ],
-      roles: [],
-      authenticationRestrictions: []
+      roles: []
     });
     
-    // Create user with the generated password
+    // Create user with the generated password in admin database
+    let adminDb = db.getSiblingDB('admin');
     adminDb.createUser({
       user: '$USERNAME',
       pwd: '$PASSWORD',
@@ -158,7 +152,7 @@ if [ "$CMD" = "create-admin" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
-  $MONGO_SHELL --quiet --port 27017 --eval "$(cat <<EOF
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
 
     db.createRole({
@@ -201,7 +195,7 @@ if [ "$CMD" = "change-password" ]; then
   # Generate random password if not provided
   NEW_PASSWORD=$(head -c 24 /dev/urandom | base64)
   
-  $MONGO_SHELL --quiet --port 27017 --eval "$(cat <<EOF
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
     
     // Check if user exists
@@ -227,7 +221,7 @@ fi
 
 if [ "$CMD" = "users" ]; then
   if [ -z "$DATABASE" ]; then
-    $MONGO_SHELL --quiet --port 27017 --eval "$(cat <<EOF
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
       let adminDb = db.getSiblingDB('admin');
       let cursor = adminDb.system.users.find();
       let userCount = 0;
@@ -257,7 +251,7 @@ if [ "$CMD" = "users" ]; then
 EOF
 )"
   else
-    $MONGO_SHELL --quiet --port 27017 --eval "$(cat <<EOF
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
       let adminDb = db.getSiblingDB('admin');
       let cursor = adminDb.system.users.find({ 'db': '$DATABASE' });
       let userCount = 0;
@@ -313,7 +307,7 @@ if [ "$CMD" = "delete-user" ]; then
     fi
   fi
 
-  $MONGO_SHELL --quiet --port 27017 --eval "$(cat <<EOF
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
     const adminDb = db.getSiblingDB('admin');
       
     // First check if user exists and get their roles
