@@ -63,6 +63,7 @@ Commands:
       --target=<node>         Target node to forward from
       --port-mapping=<l:r>    Port mapping as local:remote
   claude                      Launch Claude with nix-infra-cluster-mcp
+  claude-dev                  Launch Claude with nix-infra-dev-mcp
 
 Options:
   --env=<file>            Environment file (default: .env)
@@ -112,6 +113,9 @@ Examples:
 
   # Launch Claude with MCP
   $0 claude --env=.env
+
+  # Launch Claude with dev MCP
+  $0 claude-dev --env=.env
 EOF
 )
 
@@ -119,7 +123,7 @@ EOF
 # Parse command
 # ============================================================================
 
-VALID_COMMANDS="create destroy update upgrade-nixos publish-image ssh cmd etcd action rollback port-forward claude"
+VALID_COMMANDS="create destroy update upgrade-nixos publish-image ssh cmd etcd action rollback port-forward claude claude-dev"
 
 if [[ " $VALID_COMMANDS " == *" $1 "* ]]; then
   CMD="$1"
@@ -519,16 +523,12 @@ if [ "$CMD" = "port-forward" ]; then
 fi
 
 # ============================================================================
-# Command: claude
+# MCP Support
 # ============================================================================
 
-if [ "$CMD" = "claude" ]; then
+if [ "$CMD" = "claude" ] || [ "$CMD" = "claude-dev" ]; then
   check_required_vars SSH_KEY HCLOUD_TOKEN
-  
-  if ! command -v nix-infra-cluster-mcp &>/dev/null; then
-    die "nix-infra-cluster-mcp is not installed"
-  fi
-  
+
   # Detect OS and set paths accordingly
   case "$(uname -s)" in
     Darwin)
@@ -543,18 +543,28 @@ if [ "$CMD" = "claude" ]; then
       die "Unsupported operating system: $(uname -s)"
       ;;
   esac
-  
+
   if [ ! -d "$path_to_claude" ]; then
     die "You do not have Claude Application Support files in your user. Start the app once manually and retry."
   fi
-  
-  # Backup existing config
-  if [ -f "$path_to_claude/claude_desktop_config.json" ]; then
-    cp -f "$path_to_claude/claude_desktop_config.json" "$path_to_claude/claude_desktop_config.json.nix-infra.bak"
-  fi
-  
-  # Create mcp configuration for Claude
-  cat >"$path_to_claude/claude_desktop_config.json" <<EOF
+
+
+  # ============================================================================
+  # Command: claude
+  # ============================================================================
+
+  if [ "$CMD" = "claude" ]; then
+    if ! command -v nix-infra-cluster-mcp &>/dev/null; then
+      die "nix-infra-cluster-mcp is not installed"
+    fi
+        
+    # Backup existing config
+    if [ -f "$path_to_claude/claude_desktop_config.json" ]; then
+      cp -f "$path_to_claude/claude_desktop_config.json" "$path_to_claude/claude_desktop_config.json.nix-infra.bak"
+    fi
+    
+    # Create mcp configuration for Claude
+    cat >"$path_to_claude/claude_desktop_config.json" <<EOF
 {
   "mcpServers": {
     "nix-infra-cluster-mcp": {
@@ -563,16 +573,53 @@ if [ "$CMD" = "claude" ]; then
   }
 }
 EOF
-  
-  # Run claude
-  "$claude_bin" 2>&1
-  
-  # Reset mcp configuration for Claude
-  if [ -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" ]; then
-    cp -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" "$path_to_claude/claude_desktop_config.json"
+    
+    # Run claude
+    "$claude_bin" 2>&1
+    
+    # Reset mcp configuration for Claude
+    if [ -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" ]; then
+      cp -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" "$path_to_claude/claude_desktop_config.json"
+    fi
+    
+    exit 0
   fi
-  
-  exit 0
+
+  # ============================================================================
+  # Command: claude-dev
+  # ============================================================================
+
+  if [ "$CMD" = "claude-dev" ]; then
+    if ! command -v nix-infra-dev-mcp &>/dev/null; then
+      die "nix-infra-dev-mcp is not installed"
+    fi
+        
+    # Backup existing config
+    if [ -f "$path_to_claude/claude_desktop_config.json" ]; then
+      cp -f "$path_to_claude/claude_desktop_config.json" "$path_to_claude/claude_desktop_config.json.nix-infra.bak"
+    fi
+    
+    # Create mcp configuration for Claude
+    cat >"$path_to_claude/claude_desktop_config.json" <<EOF
+{
+  "mcpServers": {
+    "nix-infra-dev-mcp": {
+      "command": "nix-infra-dev-mcp"
+    }
+  }
+}
+EOF
+    
+    # Run claude
+    "$claude_bin" 2>&1
+    
+    # Reset mcp configuration for Claude
+    if [ -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" ]; then
+      cp -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" "$path_to_claude/claude_desktop_config.json"
+    fi
+    
+    exit 0
+  fi
 fi
 
 # If we get here, command wasn't handled
