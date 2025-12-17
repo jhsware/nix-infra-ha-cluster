@@ -2,7 +2,7 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 WORK_DIR=${WORK_DIR:-$(dirname "$SCRIPT_DIR")}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
-NIXOS_VERSION=${NIXOS_VERSION:-"24.11"}
+NIXOS_VERSION=${NIXOS_VERSION:-"25.05"}
 SSH_KEY="nixinfra"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
@@ -19,6 +19,14 @@ SECRETS_PWD=${SECRETS_PWD:-my_secrets_password}
 CTRL_NODES="etcd001"
 SERVICE_NODES="service001 service002 service003"
 OTHER_NODES="worker001"
+
+# Check for nix-infra CLI if using default
+if [ "$NIX_INFRA" = "nix-infra" ] && ! command -v nix-infra >/dev/null 2>&1; then
+  echo "The 'nix-infra' CLI is required for this script to work."
+  echo "Visit https://github.com/jhsware/nix-infra for installation instructions."
+  exit 1
+fi
+
 
 __help_text__=$(cat <<EOF
 Examples:
@@ -47,7 +55,7 @@ $0 action --env=.env-test --target=service001 args to action
 EOF
 )
 
-if [[ "create upgrade run reset destroy pull publish update test test-apps ssh cmd etcd action dev-sync" == *"$1"* ]]; then
+if [[ "create upgrade run reset destroy pull publish update status test-apps ssh cmd etcd action dev-sync" == *"$1"* ]]; then
   CMD="$1"
   shift
 else
@@ -264,7 +272,7 @@ if [ "$CMD" = "upgrade" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "test" ]; then
+if [ "$CMD" = "status" ]; then
   testCluster
   exit 0
 fi

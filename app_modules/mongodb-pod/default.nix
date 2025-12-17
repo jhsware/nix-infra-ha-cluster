@@ -1,12 +1,12 @@
 { config, pkgs, lib, ... }:
 let
-  appName = "mongodb-4-pod";
+  appName = "mongodb-pod";
   # appUser = "mongodb";
   appPort = 27017;
 
   cfg = config.infrastructure.${appName};
 
-  dataDir = "/var/lib/mongodb-4";
+  dataDir = "/var/lib/mongodb";
   execStartPreScript = pkgs.writeShellScript "preStart" ''
     ${pkgs.coreutils}/bin/mkdir -p ${dataDir}
   '';
@@ -14,6 +14,13 @@ in
 {
   options.infrastructure.${appName} = {
     enable = lib.mkEnableOption "infrastructure.mongodb oci";
+
+    image = lib.mkOption {
+      type = lib.types.str;
+      description = "MongoDB Docker image to use.";
+      default = "mongo:6";
+      example = "mongo:4.4.29-focal";
+    };
 
     # If you want to recreate the replicaset you may need to either:
     # - change name
@@ -49,11 +56,13 @@ in
         path = "";
         envPrefix = "MONGODB";
       };
-      image = "mongo:4.4.29-focal";
+      image = cfg.image;
       autoStart = true;
       ports = [
         "${cfg.bindToIp}:${toString cfg.bindToPort}:27017"
       ];
+      # Use host networking so MongoDB can see the overlay IP and identify itself in the replica set
+      networkType = "host";
       bindToIp = cfg.bindToIp;
       volumes = [
         "${dataDir}:/data/db"

@@ -1,5 +1,5 @@
 { config, pkgs, lib, ... }: {
-  config.infrastructure.mongodb-pod = {
+  config.infrastructure.mongodb = {
     enable = true;
     replicaSetName = "rs0";
     bindToIp = "[%%localhost.overlayIp%%]";

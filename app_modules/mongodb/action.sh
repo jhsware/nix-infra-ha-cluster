@@ -34,31 +34,27 @@ for i in "$@"; do
 done
 
 # Detect which mongo shell is available (mongosh for 5+, mongo for 4.x)
-get_mongo_shell() {
-  if podman exec mongodb-pod which mongosh > /dev/null 2>&1; then
-    echo "mongosh"
-  else
-    echo "mongo"
-  fi
-}
-
-MONGO_SHELL=$(get_mongo_shell)
+if which mongosh > /dev/null 2>&1; then
+  MONGO_SHELL="mongosh"
+else
+  MONGO_SHELL="mongo"
+fi
 
 if [ "$CMD" = "init" ]; then
   echo "Initializing MongoDB replica set"
-  podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --port 27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"$NODE_1:27017\", priority: 100},{_id: 1, host: \"$NODE_2:27017\"},{_id: 2, host: \"$NODE_3:27017\"}]})"
+  $MONGO_SHELL --host 127.0.0.1 --port 27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"$NODE_1:27017\", priority: 100},{_id: 1, host: \"$NODE_2:27017\"},{_id: 2, host: \"$NODE_3:27017\"}]})"
   echo "Result Code: $?"
 fi
 
 if [ "$CMD" = "status" ]; then
-  podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval 'rs.status()'
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval 'rs.status()'
   echo "Result Code: $?"
 fi
 
 if [ "$CMD" = "dbs" ]; then
   echo "dbs..."
   if [ -z "$VERBOSE" ]; then
-    podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       result.databases.forEach(function(db) {
@@ -67,7 +63,7 @@ if [ "$CMD" = "dbs" ]; then
 EOF
     )"
   else
-    podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       print('\nDatabase List:');
@@ -97,7 +93,7 @@ if [ "$CMD" = "create-db" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
-  podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
     // Check if database already exists by listing all databases
     let dbs = db.adminCommand('listDatabases');
     let dbExists = dbs.databases.some(d => d.name === '$DATABASE');
@@ -156,7 +152,7 @@ if [ "$CMD" = "create-admin" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
-  podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
 
     db.createRole({
@@ -167,7 +163,8 @@ if [ "$CMD" = "create-admin" ]; then
           actions: ["find", "insert", "remove", "update", "compact", "createCollection", "dropCollection", "collStats", "createIndex", "reIndex", "dropIndex"]
         }
       ],
-      roles: []
+      roles: [],
+      authenticationRestrictions: []
     });
     
     // Create user with the generated password
@@ -198,7 +195,7 @@ if [ "$CMD" = "change-password" ]; then
   # Generate random password if not provided
   NEW_PASSWORD=$(head -c 24 /dev/urandom | base64)
   
-  podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
     db = db.getSiblingDB('$DATABASE');
     
     // Check if user exists
@@ -224,7 +221,7 @@ fi
 
 if [ "$CMD" = "users" ]; then
   if [ -z "$DATABASE" ]; then
-    podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
       let adminDb = db.getSiblingDB('admin');
       let cursor = adminDb.system.users.find();
       let userCount = 0;
@@ -254,7 +251,7 @@ if [ "$CMD" = "users" ]; then
 EOF
 )"
   else
-    podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
       let adminDb = db.getSiblingDB('admin');
       let cursor = adminDb.system.users.find({ 'db': '$DATABASE' });
       let userCount = 0;
@@ -310,7 +307,7 @@ if [ "$CMD" = "delete-user" ]; then
     fi
   fi
 
-  podman exec mongodb-pod $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
     const adminDb = db.getSiblingDB('admin');
       
     // First check if user exists and get their roles
