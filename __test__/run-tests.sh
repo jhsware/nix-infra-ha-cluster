@@ -55,7 +55,7 @@ $0 action --env=.env-test --target=service001 args to action
 EOF
 )
 
-if [[ "create upgrade run reset destroy pull publish update test test-apps ssh cmd etcd action dev-sync" == *"$1"* ]]; then
+if [[ "create upgrade run reset destroy pull publish update status test-apps ssh cmd etcd action dev-sync" == *"$1"* ]]; then
   CMD="$1"
   shift
 else
@@ -272,7 +272,7 @@ if [ "$CMD" = "upgrade" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "test" ]; then
+if [ "$CMD" = "status" ]; then
   testCluster
   exit 0
 fi
