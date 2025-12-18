@@ -72,14 +72,17 @@ checkNixos() {
   local _nixos_fail=""
 
   for node in $NODES; do
-    if [[ $(cmd "$node" "uname -a" &) == *"NixOS"* ]]; then
+    local output=$(cmd "$node" "uname -a" 2>&1)
+    if [[ "$output" == *"NixOS"* ]]; then
       echo "- nixos    : ok ($node)"
     else
       echo "- nixos    : fail ($node)"
+      if [ -n "$output" ]; then
+        echo "$output"
+      fi
       _nixos_fail="true";
     fi
   done
-  wait
 
   if [ -n "$_nixos_fail" ]; then
     return 1
@@ -93,14 +96,17 @@ checkEtcd() {
   local _failed
 
   for node in $NODES; do
-    if [[ $(cmd "$node" "systemctl is-active etcd" &) == *"active"* ]]; then
+    local output=$(cmd "$node" "systemctl is-active etcd" 2>&1)
+    if [[ "$output" == *"active"* ]]; then
       echo "- etcd     : ok ($node)"
     else
       echo "- etcd     : down ($node)"
+      if [ -n "$output" ]; then
+        echo "$output"
+      fi
       _failed="yes"
     fi
   done
-  wait
 
   if [ -n "$_failed" ]; then
     return 1
@@ -114,14 +120,17 @@ checkWireguard() {
   local _failed
 
   for node in $NODES; do
-    if [[ $(cmd "$node" "wg show" &) == *"peer: "* ]]; then
+    local output=$(cmd "$node" "wg show" 2>&1)
+    if [[ "$output" == *"peer: "* ]]; then
       echo "- wireguard: ok ($node)"
     else
       echo "- wireguard: down ($node)"
+      if [ -n "$output" ]; then
+        echo "$output"
+      fi
       _failed="yes"
     fi
   done
-  wait
 
   if [ -n "$_failed" ]; then
     return 1
@@ -135,14 +144,17 @@ checkConfd() {
   local _failed
 
   for node in $NODES; do
-    if [[ $(cmd "$node" "grep -q \"$node\" /root/test.txt && echo true" &) == *"true"* ]]; then
+    local output=$(cmd "$node" "grep -q \"$node\" /root/test.txt && echo true" 2>&1)
+    if [[ "$output" == *"true"* ]]; then
       echo "- confd: ok ($node)"
     else
       echo "- confd: down ($node)"
+      if [ -n "$output" ]; then
+        echo "$output"
+      fi
       _failed="yes"
     fi
   done
-  wait
   
   if [ -n "$_failed" ]; then
     return 1
