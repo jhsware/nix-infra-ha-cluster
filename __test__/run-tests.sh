@@ -54,7 +54,7 @@ $0 etcd --env=.env-test --target=etcd001 get --prefix /nodes
 $0 action --env=.env-test --target=service001 args to action
 EOF
 
-if [[ "create upgrade run reset destroy pull publish update status test-apps ssh cmd etcd action dev-sync" == *"$1"* ]]; then
+if [[ "create upgrade run reset destroy pull publish update status test-apps ssh cmd etcd action" == *"$1"* ]]; then
   CMD="$1"
   shift
 else
@@ -221,16 +221,6 @@ cleanupOnFail() {
 
 if [ "$CMD" = "destroy" ]; then
   destroyCluster
-  exit 0
-fi
-
-# When you are developing your cluster template
-if [ "$CMD" = "dev-sync" ]; then
-  if [ -z "$REST" ]; then
-    echo "Usage: $0 dev-sync /path/to/source"
-    exit 1
-  fi
-  (cd "$WORK_DIR" && git reset --hard && (cd "$REST" && git diff) |  git apply)
   exit 0
 fi
 
