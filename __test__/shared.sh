@@ -77,8 +77,8 @@ checkNixos() {
       echo "- nixos    : ok ($node)"
     else
       echo "- nixos    : fail ($node)"
-      if [ -n "$output" ]; then
-        echo "$output"
+      if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+        echo "  $output"
       fi
       _nixos_fail="true";
     fi
@@ -101,8 +101,8 @@ checkEtcd() {
       echo "- etcd     : ok ($node)"
     else
       echo "- etcd     : down ($node)"
-      if [ -n "$output" ]; then
-        echo "$output"
+      if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+        echo "  $output"
       fi
       _failed="yes"
     fi
@@ -125,8 +125,8 @@ checkWireguard() {
       echo "- wireguard: ok ($node)"
     else
       echo "- wireguard: down ($node)"
-      if [ -n "$output" ]; then
-        echo "$output"
+      if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+        echo "  $output"
       fi
       _failed="yes"
     fi
@@ -149,8 +149,8 @@ checkConfd() {
       echo "- confd: ok ($node)"
     else
       echo "- confd: down ($node)"
-      if [ -n "$output" ]; then
-        echo "$output"
+      if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+        echo "  $output"
       fi
       _failed="yes"
     fi
