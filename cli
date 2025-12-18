@@ -35,7 +35,8 @@ fi
 # Help text
 # ============================================================================
 
-__help_text__=$(cat <<EOF
+
+read -r -d '' __help_text__ <<EOF || true
 nix-infra-ha-cluster CLI
 ========================
 
@@ -117,7 +118,6 @@ Examples:
   # Launch Claude with dev MCP
   $0 claude-dev --env=.env
 EOF
-)
 
 # ============================================================================
 # Parse command

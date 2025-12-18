@@ -60,8 +60,7 @@ if [ "$CMD" = "create-app" ]; then
   fi
 
   # Create regular app role with restricted permissions
-  curl -k -s -X PUT -H "Content-Type: application/json" -H "$AUTH_HEADER" \
-    "$URI/_security/role/${APP_NAME}_app_role" -d "$(cat <<EOF
+  read -r -d '' app_role_json <<EOF || true
 {
   "cluster": ["monitor"],
   "indices": [
@@ -73,11 +72,11 @@ if [ "$CMD" = "create-app" ]; then
   ]
 }
 EOF
-)" >$_mute
+  curl -k -s -X PUT -H "Content-Type: application/json" -H "$AUTH_HEADER" \
+    "$URI/_security/role/${APP_NAME}_app_role" -d "$app_role_json" >$_mute
 
   # Create admin role with additional privileges
-  curl -k -s -X PUT -H "Content-Type: application/json" -H "$AUTH_HEADER" \
-    "$URI/_security/role/${APP_NAME}_admin_role" -d "$(cat <<EOF
+  read -r -d '' admin_role_json <<EOF || true
 {
   "cluster": ["monitor", "manage_index_templates", "manage_ilm"],
   "indices": [
@@ -89,15 +88,15 @@ EOF
   ]
 }
 EOF
-)" >$_mute
+  curl -k -s -X PUT -H "Content-Type: application/json" -H "$AUTH_HEADER" \
+    "$URI/_security/role/${APP_NAME}_admin_role" -d "$admin_role_json" >$_mute
 
   # Generate password for default user
   DEFAULT_USER="${APP_NAME}_default_user"
   DEFAULT_PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create default user with app role
-  curl -k -s -X POST -H "Content-Type: application/json" -H "$AUTH_HEADER" \
-    "$URI/_security/user/$DEFAULT_USER" -d "$(cat <<EOF
+  read -r -d '' user_json <<EOF || true
 {
   "password": "$DEFAULT_PASSWORD",
   "roles": ["${APP_NAME}_app_role"],
@@ -105,7 +104,8 @@ EOF
   "enabled": true
 }
 EOF
-)" >$_mute
+  curl -k -s -X POST -H "Content-Type: application/json" -H "$AUTH_HEADER" \
+    "$URI/_security/user/$DEFAULT_USER" -d "$user_json" >$_mute
 
   # Return connection string
   echo "https://${DEFAULT_USER}:${DEFAULT_PASSWORD}@${IP_ADDR}:9200/${APP_NAME}-*"
@@ -127,8 +127,7 @@ if [ "$CMD" = "create-admin" ]; then
   #   exit 1
   # fi
 
-  curl -k -s -X POST -H "Content-Type: application/json" -H "$AUTH_HEADER" \
-    "$URI/_security/user/$USERNAME" -d "$(cat <<EOF
+  read -r -d '' user_json <<EOF || true
 {
   "password": "$ADMIN_PASSWORD",
   "roles": ["${APP_NAME}_admin_role"],
@@ -136,7 +135,8 @@ if [ "$CMD" = "create-admin" ]; then
   "enabled": true
 }
 EOF
-)" >$_mute
+  curl -k -s -X POST -H "Content-Type: application/json" -H "$AUTH_HEADER" \
+    "$URI/_security/user/$USERNAME" -d "$user_json" >$_mute
   
   # Return connection string
   echo "https://${USERNAME}:${ADMIN_PASSWORD}@${IP_ADDR}:9200/${APP_NAME}-*"
@@ -152,13 +152,13 @@ if [ "$CMD" = "change-password" ]; then
   NEW_PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Update the user's password
-  curl -k -s -X POST -H "Content-Type: application/json" -H "$AUTH_HEADER" \
-    "$URI/_security/user/$USERNAME/_password" -d "$(cat <<EOF
+  read -r -d '' password_json <<EOF || true
 {
   "password": "$NEW_PASSWORD"
 }
 EOF
-)" >$_mute
+  curl -k -s -X POST -H "Content-Type: application/json" -H "$AUTH_HEADER" \
+    "$URI/_security/user/$USERNAME/_password" -d "$password_json" >$_mute
   
   # Get user's roles to determine if they are associated with an app
   user_info=$(curl -k -s -X GET -H "Content-Type: application/json" -H "$AUTH_HEADER" \

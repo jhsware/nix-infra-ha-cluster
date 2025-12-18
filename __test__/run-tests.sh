@@ -28,7 +28,7 @@ if [ "$NIX_INFRA" = "nix-infra" ] && ! command -v nix-infra >/dev/null 2>&1; the
 fi
 
 
-__help_text__=$(cat <<EOF
+read -r -d '' __help_text__ <<EOF || true
 Examples:
 
 Run the test:
@@ -53,7 +53,6 @@ $0 etcd --env=.env-test --target=etcd001 get --prefix /nodes
 # The action is hardcoded in this script, edit to try different stuff
 $0 action --env=.env-test --target=service001 args to action
 EOF
-)
 
 if [[ "create upgrade run reset destroy pull publish update status test-apps ssh cmd etcd action dev-sync" == *"$1"* ]]; then
   CMD="$1"
@@ -285,7 +284,7 @@ fi
 
 if [ "$CMD" = "create" ]; then
   if [ ! -f "$ENV" ]; then
-    env=$(cat <<EOF
+    read -r -d '' env <<EOF || true
 # NOTE: The following secrets are required for various operations
 # by the nix-infra CLI. Make sure they are encrypted when not in use
 SSH_KEY=$(echo $SSH_KEY)
@@ -310,7 +309,7 @@ INTERMEDIATE_CA_PASS=$(echo $INTERMEDIATE_CA_PASS)
 # These need to be kept secret.
 SECRETS_PWD=$(echo $SECRETS_PWD)
 EOF
-)
+
     echo "$env" > "$WORK_DIR"/.env
   fi
 
