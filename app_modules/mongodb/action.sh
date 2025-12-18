@@ -54,16 +54,16 @@ fi
 if [ "$CMD" = "dbs" ]; then
   echo "dbs..."
   if [ -z "$VERBOSE" ]; then
-    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    read -r -d '' mongo_script <<EOF || true
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       result.databases.forEach(function(db) {
         print(db.name);
       });
 EOF
-    )"
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$mongo_script"
   else
-    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    read -r -d '' mongo_script <<EOF || true
       db = db.getSiblingDB('admin');
       let result = db.adminCommand('listDatabases');
       print('\nDatabase List:');
@@ -75,7 +75,7 @@ EOF
       print('\nTotal size: ' + (result.totalSize / 1024 / 1024).toFixed(2) + ' MB');
       print('Total number of databases: ' + result.databases.length);
 EOF
-    )"
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$mongo_script"
   fi
 fi
 
@@ -93,7 +93,7 @@ if [ "$CMD" = "create-db" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
-  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+  read -r -d '' mongo_script <<EOF || true
     // Check if database already exists by listing all databases
     let dbs = db.adminCommand('listDatabases');
     let dbExists = dbs.databases.some(d => d.name === '$DATABASE');
@@ -129,7 +129,7 @@ if [ "$CMD" = "create-db" ]; then
       passwordDigestor: "server",
     });
 EOF
-)" >$_mute
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$mongo_script" >$_mute
   
   # Check the result of the MongoDB command
   RESULT=$?
@@ -152,7 +152,7 @@ if [ "$CMD" = "create-admin" ]; then
   PASSWORD=$(head -c 24 /dev/urandom | base64)
 
   # Create role and user in MongoDB
-  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+  read -r -d '' mongo_script <<EOF || true
     db = db.getSiblingDB('$DATABASE');
 
     db.createRole({
@@ -174,7 +174,7 @@ if [ "$CMD" = "create-admin" ]; then
       roles: ['${ADMIN_ROLE}']
     });
 EOF
-)" >$_mute
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$mongo_script" >$_mute
   
   # Check the result of the MongoDB command
   RESULT=$?
@@ -195,7 +195,7 @@ if [ "$CMD" = "change-password" ]; then
   # Generate random password if not provided
   NEW_PASSWORD=$(head -c 24 /dev/urandom | base64)
   
-  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+  read -r -d '' mongo_script <<EOF || true
     db = db.getSiblingDB('$DATABASE');
     
     // Check if user exists
@@ -208,7 +208,7 @@ if [ "$CMD" = "change-password" ]; then
     // Change password
     db.changeUserPassword('$USERNAME', '$NEW_PASSWORD');
 EOF
-)" >$_mute
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$mongo_script" >$_mute
 
   RESULT=$?
   if [ $RESULT -eq 0 ]; then
@@ -221,7 +221,7 @@ fi
 
 if [ "$CMD" = "users" ]; then
   if [ -z "$DATABASE" ]; then
-    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    read -r -d '' mongo_script <<'EOF' || true
       let adminDb = db.getSiblingDB('admin');
       let cursor = adminDb.system.users.find();
       let userCount = 0;
@@ -249,9 +249,9 @@ if [ "$CMD" = "users" ]; then
         print('\nTotal users: ' + userCount);
       }
 EOF
-)"
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$mongo_script"
   else
-    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+    read -r -d '' mongo_script <<EOF || true
       let adminDb = db.getSiblingDB('admin');
       let cursor = adminDb.system.users.find({ 'db': '$DATABASE' });
       let userCount = 0;
@@ -277,9 +277,8 @@ EOF
       } else {
         print('\nTotal users: ' + userCount);
       }
-
 EOF
-)"
+    $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$mongo_script"
   fi
 
 
@@ -307,7 +306,7 @@ if [ "$CMD" = "delete-user" ]; then
     fi
   fi
 
-  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$(cat <<EOF
+  read -r -d '' mongo_script <<EOF || true
     const adminDb = db.getSiblingDB('admin');
       
     // First check if user exists and get their roles
@@ -334,7 +333,7 @@ if [ "$CMD" = "delete-user" ]; then
       print('  - ' + role.role + (role.db !== '$DATABASE' ? ' (database: ' + role.db + ')' : ''));
     });
 EOF
-)" >$_mute
+  $MONGO_SHELL --host 127.0.0.1 --quiet --port 27017 --eval "$mongo_script" >$_mute
 
   RESULT=$?
   if [ $RESULT -ne 0 ]; then
